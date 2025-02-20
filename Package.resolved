@@ -1,0 +1,23 @@
+{
+  "pins" : [
+    {
+      "identity" : "swift-json",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sutext/swift-json",
+      "state" : {
+        "revision" : "c7a1c51d73d81db701af80ac505928faeb459510",
+        "version" : "2.0.1"
+      }
+    },
+    {
+      "identity" : "swift-promise",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sutext/swift-promise",
+      "state" : {
+        "revision" : "9e60dc738358d8edafdcf143b83b000816f1e567",
+        "version" : "1.5.1"
+      }
+    }
+  ],
+  "version" : 2
+}
