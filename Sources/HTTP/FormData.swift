@@ -543,7 +543,7 @@ extension FormData{
             return .data(data)
         }
         let tempDirectoryURL = fileManager.temporaryDirectory
-        let directoryURL = tempDirectoryURL.appendingPathComponent("SwiftHTTP.manager/multipart.form.data")
+        let directoryURL = tempDirectoryURL.appendingPathComponent("SwiftHTTP/multipart.form.data")
         let fileName = UUID().uuidString
         let fileURL = directoryURL.appendingPathComponent(fileName)
         try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true, attributes: nil)

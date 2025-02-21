@@ -8,7 +8,7 @@
 import Foundation
 
 class Session:NSObject{
-    @Safely private var tasks:[Int:Task] = [:]
+    @Safely private var tasks:[Int:HTTPTask] = [:]
     private let rootQueue:DispatchQueue = DispatchQueue(label: "SwiftHTTP.\(UInt.random(in: 100000...199999))",attributes: .concurrent)
     lazy var session:URLSession = {
         let config = URLSessionConfiguration.default
@@ -38,7 +38,7 @@ class Session:NSObject{
             return .init(error)
         }
         let task = self.session.dataTask(with: urlreq)
-        let req = Task(task,session: self,retrier: retrier)
+        let req = HTTPTask(task,session: self,retrier: retrier)
         self.add(req)
         return .init(req)
     }
@@ -52,7 +52,7 @@ class Session:NSObject{
     {
         let result = URLEncoder.query.encode(url, method: .post, params: params, headers: headers, timeout: timeout ?? 0)
         guard var urlreq = result.value else{
-            return .init(HTTPError.encode(result.error!))
+            return .init(HTTP.Error.encode(result.error!))
         }
         do {
             let fr = try self.network.filter(request: urlreq)
@@ -82,7 +82,7 @@ class Session:NSObject{
     {
         let result = URLEncoder.query.encode(url, method: .post, params: params, headers: headers, timeout: 0)
         guard var urlreq = result.value else{
-            return .init(HTTPError.encode(result.error!))
+            return .init(HTTP.Error.encode(result.error!))
         }
         urlreq.setHeader(form.contentType, for: .contentType)
         do {
@@ -104,7 +104,7 @@ class Session:NSObject{
             case .file(let fileURL):
                 let task = self.session.uploadTask(with: urlreq, fromFile: fileURL)
                 req = UploadTask(task,session: self,fileManager: form.fileManager)
-                req.cleanupFile = fileURL
+                req.tempFile = fileURL
             }
             self.add(req)
             return .init(req)
@@ -132,7 +132,7 @@ class Session:NSObject{
     {
         let result = URLEncoder.query.encode(url, method: .get, params: params, headers: headers, timeout: timeout ?? 0)
         guard let urlreq = result.value else{
-            return .init(HTTPError.encode(result.error!))
+            return .init(HTTP.Error.encode(result.error!))
         }
         let task = self.session.downloadTask(with: urlreq)
         let req = DownloadTask(task,session: self, transfer: transfer, fileManager: fileManager)
@@ -151,11 +151,11 @@ extension Session{
             }
         }
     }
-    func add(_ task:Task) {
+    func add(_ task:HTTPTask) {
         self.$tasks[task.id] = task
         task.resume()
     }
-    func remove(_ task:Task){
+    func remove(_ task:HTTPTask){
         self.$tasks[task.id] = nil
     }
 }
@@ -189,7 +189,7 @@ extension Session:URLSessionDataDelegate{
         if req is DownloadTask{ return }
         req.append(data)
     }
-    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Swift.Error?) {
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         guard let req = self.$tasks[task.taskIdentifier] else{ return }
         self.remove(req)
         if let retry = req.finish(error) {

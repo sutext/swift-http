@@ -7,16 +7,16 @@
 
 import Foundation
 
-public struct Encoder{
+public struct HTTPEncoder{
     static func encode(
         _ url: URL,
-        method: HTTPMethod,
+        method: HTTP.Method,
         params: Parameters?,
         headers:Headers?,
-        timeout: TimeInterval) -> Result<URLRequest,Error>
+        timeout: TimeInterval) -> Result<URLRequest,Swift.Error>
     {
         switch method {
-        case .get,.connect,.head:
+        case .get,.head,.delete,.connect:
             return URLEncoder.query.encode(url, method: method, params: params as? JSONParams, headers: headers, timeout: timeout)
         default:
             break
@@ -26,6 +26,9 @@ public struct Encoder{
         urlRequest.httpMethod = method.rawValue
         guard let params else {
             return .success(urlRequest)
+        }
+        if let contentType = params.contentType{
+            urlRequest.setHeader(contentType, for: .contentType)
         }
         return .init{
             urlRequest.httpBody = try params.bodyData()
@@ -81,10 +84,10 @@ public struct URLEncoder{
     }
     public func encode(
         _ url:URL,
-        method:HTTPMethod,
+        method:HTTP.Method,
         params:JSONParams?,
         headers:Headers?,
-        timeout:TimeInterval)-> Result<URLRequest,Error>
+        timeout:TimeInterval)-> Result<URLRequest,Swift.Error>
     {
         var urlRequest = URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: timeout)
         urlRequest.httpMethod = method.rawValue
@@ -93,7 +96,7 @@ public struct URLEncoder{
             return .success(urlRequest)
         }
         guard let params = JSON(params).object else{
-            return .failure(HTTPError.invalidParams(info: "URLEncoder only suport HTTPParams(key-value encode)"))
+            return .failure(HTTP.Error.invalidParams(info: "URLEncoder only suport HTTPParams(key-value encode)"))
         }
         if destination.needEncodeInURL(for: method) {
             if var urlComponents = URLComponents(url: url, resolvingAgainstBaseURL: true) {
@@ -172,7 +175,7 @@ extension URLEncoder{
     /// Defines whether the url-encoded query string is applied to the existing query string or HTTP body of the
     /// resulting URL request.
     public enum Destination {
-        /// Applies encoded query string result to existing query string for `GET`, `HEAD` and `DELETE` requests and
+        /// Applies encoded query string result to existing query string for `GET`, `HEAD`, `DELETE`,`CONNECT` requests and
         /// sets as the HTTP body for requests with any other HTTP method.
         case methodDependent
         /// Sets or appends encoded query string result to existing query string.
@@ -180,9 +183,9 @@ extension URLEncoder{
         /// Sets encoded query string result as the HTTP body of the URL request.
         case httpBody
 
-        func needEncodeInURL(for method: HTTPMethod) -> Bool {
+        func needEncodeInURL(for method: HTTP.Method) -> Bool {
             switch self {
-            case .methodDependent: return [.get, .head, .delete].contains(method)
+            case .methodDependent: return [.get, .head, .delete,.connect].contains(method)
             case .queryString: return true
             case .httpBody: return false
             }

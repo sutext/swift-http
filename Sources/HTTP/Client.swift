@@ -9,8 +9,8 @@ import Foundation
 
 extension HTTP{
     ///
-    /// `Network` is network configure center.
-    ///  Usually you can inherit from `Network` and override the configuration params .
+    /// `HTTP Client` is network configure center.
+    ///  Usually you can inherit from `HTTP.Client` and override the configuration params .
     ///
     open class Client {
         private let session:Session = Session()
@@ -24,7 +24,7 @@ extension HTTP{
         /// global callback queue by default use main queue.
         open var queue:DispatchQueue { .main }
         /// global http method `.get` by default. override it in  options
-        open var method:HTTPMethod{.get}
+        open var method:HTTP.Method{.get}
         /// global retryer  `nil` by default .override it in  options
         open var retrier:Retrier?{ nil }
         /// global http headers `[:]` by default, override it in  options
@@ -71,7 +71,7 @@ extension HTTP{
         /// - Returns: A `VerifyResult` whtin none restart and rewrite.
         /// - Important: All download tasks are not verified
         ///
-        open func restart(error:Error,request:URLRequest)throws ->URLRequest{ throw error }
+        open func restart(error:Swift.Error,request:URLRequest)throws ->URLRequest{ throw error }
         
         /// Resolve the URLAuthenticationChallenge for the task.
         ///
@@ -98,7 +98,7 @@ extension HTTP.Client{
     public func request<R:Request>(_ req:R)->Response<R.Model>{
         guard let baseURL = req.options?.baseURL ?? self.baseURL ,
               let url = URL(string:req.path,relativeTo:baseURL) else {
-            return .init(HTTPError.invalidURL(url:req.path))
+            return .init(HTTP.Error.invalidURL(url:req.path))
         }
         let method = req.options?.method ?? self.method
         let timeout = req.options?.timeout ?? self.timeout
@@ -107,9 +107,9 @@ extension HTTP.Client{
         if let h = req.options?.headers {
             headers.merge(h)
         }
-        let result = Encoder.encode(url, method: method, params: req.params, headers: headers, timeout: timeout)
+        let result = HTTPEncoder.encode(url, method: method, params: req.params, headers: headers, timeout: timeout)
         guard let urlreq = result.value else{
-            return .init(HTTPError.encode(result.error!))
+            return .init(HTTP.Error.encode(result.error!))
         }
         let resp = self.session.request(urlreq,retrier: retrier).then{ data in
             try req.convert(data)
@@ -132,7 +132,7 @@ extension HTTP.Client{
     public func request(_  path:String,params:Parameters?=nil,options:HTTP.Options?=nil)->Response<Data>{
         guard let baseURL = options?.baseURL ?? self.baseURL ,
               let url = URL(string:path,relativeTo:baseURL) else {
-            return .init(HTTPError.invalidURL(url:path))
+            return .init(HTTP.Error.invalidURL(url:path))
         }
         let method = options?.method ?? self.method
         let timeout = options?.timeout ?? self.timeout
@@ -141,9 +141,9 @@ extension HTTP.Client{
         if let h = options?.headers {
             headers.merge(h)
         }
-        let result = Encoder.encode(url, method: method, params: params, headers: headers, timeout: timeout)
+        let result = HTTPEncoder.encode(url, method: method, params: params, headers: headers, timeout: timeout)
         guard let urlreq = result.value else{
-            return .init(HTTPError.encode(result.error!))
+            return .init(HTTP.Error.encode(result.error!))
         }
         let resp = self.session.request(urlreq,retrier: retrier)
         if debug{
@@ -161,7 +161,7 @@ extension HTTP.Client{
     @discardableResult
     public func upload<R:UploadRequest>(_ req:R)->Response<R.Model>{
         guard let url = URL(string:req.url) else {
-            return .init(HTTPError.invalidURL(url:req.url))
+            return .init(HTTP.Error.invalidURL(url:req.url))
         }
         var headers = Headers(self.headers)
         if let h = req.headers {
@@ -217,7 +217,7 @@ extension HTTP.Client{
         timeout:TimeInterval? = nil)->Response<Data>
     {
         guard let url = URL(string:url) else {
-            return .init(HTTPError.invalidURL(url:url))
+            return .init(HTTP.Error.invalidURL(url:url))
         }
         var h = Headers(self.headers)
         if let headers{
@@ -246,7 +246,7 @@ extension HTTP.Client{
     @discardableResult
     public func download<R:DownloadRequest>(_ req:R)->Response<Data>{
         guard let url = URL(string:req.url) else {
-            return .init(HTTPError.invalidURL(url:req.url))
+            return .init(HTTP.Error.invalidURL(url:req.url))
         }
         let resp = self.session.download(
             url,
@@ -280,7 +280,7 @@ extension HTTP.Client{
     {
         var aheaders = Headers(self.headers)
         guard let url = URL(string:url) else {
-            return .init(HTTPError.invalidURL(url:url))
+            return .init(HTTP.Error.invalidURL(url:url))
         }
         if let newh = headers {
             aheaders.merge(newh)
@@ -326,11 +326,11 @@ extension HTTP{
         /// replace original request
         case replace(URLRequest)
         /// return a response directly
-        case response(Result<Data,Error>)
+        case response(Result<Data,Swift.Error>)
     }
     public struct Options{
         /// overwrite the global method settings
-        public var method:HTTPMethod?
+        public var method:HTTP.Method?
         /// overwrite the global baseURL settings
         public var baseURL:URL?
         /// overwrite the global retrier settings
@@ -340,7 +340,7 @@ extension HTTP{
         /// overwrite global timeout settings
         public var timeout:TimeInterval?
         public init(
-            _ method:HTTPMethod?=nil,
+            _ method:HTTP.Method?=nil,
             baseURL:URL?=nil,
             retrier:Retrier?=nil,
             headers:[String:String]?=nil,

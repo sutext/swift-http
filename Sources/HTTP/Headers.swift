@@ -107,7 +107,7 @@ extension Headers:ExpressibleByDictionaryLiteral{
         self.values = elements.reduce(into: [:]){$0[$1.0.rawValue]=$1.1}
     }
 }
-extension Collection where Element == String {
+extension RandomAccessCollection where Element == String {
     fileprivate func qualityEncoded() -> String {
         enumerated().map { index, encoding in
             let quality = 1.0 - (Double(index) * 0.1)

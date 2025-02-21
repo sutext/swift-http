@@ -19,20 +19,20 @@ extension DateFormatter{
 
 public struct Response<Value:Sendable>:Sendable{
     private let promise:Promise<Value>
-    private let task:Task?
-    init(_ value:Value,task: Task? = nil){
+    private let task:HTTPTask?
+    init(_ value:Value,task: HTTPTask? = nil){
         self.promise = .init(value)
         self.task = task
     }
-    init(_ error:Error,task: Task? = nil){
+    init(_ error:Error,task: HTTPTask? = nil){
         self.promise = .init(error)
         self.task = task
     }
-    init(_ result:Result<Value,Error>,task: Task? = nil){
+    init(_ result:Result<Value,Error>,task: HTTPTask? = nil){
         self.promise = .init(result)
         self.task = task
     }
-    init(promise: Promise<Value>, task: Task? = nil) {
+    init(promise: Promise<Value>, task: HTTPTask? = nil) {
         self.promise = promise
         self.task = task
     }
@@ -122,7 +122,7 @@ public struct Response<Value:Sendable>:Sendable{
     }
 }
 extension Response where Value == Data{
-    init(_ task:Task){
+    init(_ task:HTTPTask){
         self.promise = task.promise
         self.task = task
     }

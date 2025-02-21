@@ -9,7 +9,7 @@ import Foundation
 
 /// `Request` is the common superclass of all request types and provides common state  and callback handling.
 /// - Note provides progress interface for any request
-class Task:@unchecked Sendable{
+class HTTPTask:@unchecked Sendable{
     private(set) var task:URLSessionTask
     @Safely private(set) var data: Data = Data()
     private let session:Session
@@ -46,7 +46,7 @@ class Task:@unchecked Sendable{
     /// the current http status code
     var statusCode:Int?{  response?.statusCode  }
     /// the current http method
-    var method:HTTPMethod? {
+    var method:HTTP.Method? {
         guard let str = request?.httpMethod else {
             return nil
         }
@@ -90,12 +90,12 @@ class Task:@unchecked Sendable{
             return self.retry(when: error)
         }
         guard let resp = response else {
-            let error = HTTPError.invalidResponse(resp: task.response)
+            let error = HTTP.Error.invalidResponse(resp: task.response)
             self.error = error
             return self.retry(when: error)
         }
         guard [200,204,205].contains(resp.statusCode) else {
-            let error = HTTPError.invalidStatus(code:resp.statusCode)
+            let error = HTTP.Error.invalidStatus(code:resp.statusCode)
             self.error = error
             return self.retry(when: error)
         }
@@ -130,9 +130,10 @@ class Task:@unchecked Sendable{
         
     }
 }
-class UploadTask:Task,@unchecked Sendable{
+class UploadTask:HTTPTask,@unchecked Sendable{
     private var fileManager:FileManager
-    var cleanupFile:URL?
+    /// temp file when multipart/form-data
+    var tempFile:URL?
     init(
         _ task: URLSessionTask,
         session:Session,
@@ -142,7 +143,7 @@ class UploadTask:Task,@unchecked Sendable{
     }
     override func cleanup() {
         super.cleanup()
-        if let url = cleanupFile {
+        if let url = tempFile {
             try? fileManager.removeItem(at: url)
         }
     }
@@ -157,7 +158,7 @@ extension URLRequest{
 }
 public typealias FileTransfer = (_ tempURL:URL,_ response:HTTPURLResponse?) -> URL
 
-class DownloadTask:Task,@unchecked Sendable{
+class DownloadTask:HTTPTask,@unchecked Sendable{
     /// temp file url transfer
     private var fileManager:FileManager
     private let transfer:FileTransfer
@@ -184,17 +185,17 @@ class DownloadTask:Task,@unchecked Sendable{
             return self.retry(when: error)
         }
         guard let resp = response else {
-            let error = HTTPError.invalidResponse(resp: task.response)
+            let error = HTTP.Error.invalidResponse(resp: task.response)
             self.error = error
             return self.retry(when: error)
         }
         guard [200,204,205].contains(resp.statusCode) else {
-            let error = HTTPError.invalidStatus(code:resp.statusCode)
+            let error = HTTP.Error.invalidStatus(code:resp.statusCode)
             self.error = error
             return self.retry(when: error)
         }
         guard let location = self.fileURL?.absoluteString else {
-            let error = HTTPError.download(info:"invalid destination file url")
+            let error = HTTP.Error.download(info:"invalid destination file url")
             self.error = error
             return retry(when: error)
         }

@@ -6,6 +6,7 @@
 //
 
 import Foundation
+
 public final class Retrier{
     /// The total number of times the request is allowed to be retried.
     public private(set) var count: UInt = 0
@@ -14,7 +15,7 @@ public final class Retrier{
     /// The retry delay policy
     public let policy:Policy
     /// The HTTP methods that are allowed to be retried.
-    public let methods: Set<HTTPMethod>
+    public let methods: Set<HTTP.Method>
     /// The HTTP status codes that are automatically retried by the policy.
     public let statusCodes: Set<Int>
     /// The URL error codes that are automatically retried by the policy.
@@ -28,7 +29,7 @@ public final class Retrier{
     ///   - urlErrorCodes:The URL error codes that are automatically retried by the policy.
     public init(limit: UInt = Retrier.defaultLimit,
                 policy:Policy = .exponential(base: 2, scale: 0.5),
-                methods: Set<HTTPMethod> = Retrier.defaultMethods,
+                methods: Set<HTTP.Method> = Retrier.defaultMethods,
                 statusCodes: Set<Int> = Retrier.defaultStatusCodes,
                 urlErrorCodes: Set<URLError.Code> = Retrier.defaultURLErrorCodes) {
         switch policy {
@@ -60,7 +61,7 @@ extension Retrier {
 
     /// The default HTTP methods to retry.
     /// See [RFC 2616 - Section 9.1.2](https://www.w3.org/Protocols/rfc2616/rfc2616-sec9.html) for more information.
-    public static let defaultMethods: Set<HTTPMethod> = [
+    public static let defaultMethods: Set<HTTP.Method> = [
         .get,       // [GET] generally idempotent
         .put,       // [PUT]ot always idempotent
         .head,      // [HEAD] generally idempotent
@@ -289,7 +290,7 @@ extension Retrier {
     ///     - request: `Request` that failed due to the provided `Error`.
     ///     - error:   `Error` encountered while executing the `Request`.
     /// - Returns: delay timeinterval, if nill means never retry
-    func doRetry(_ request: Task, when error: Error) -> TimeInterval? {
+    func doRetry(_ request: HTTPTask, when error: Error) -> TimeInterval? {
         guard limit > count else {
             return nil
         }

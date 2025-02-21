@@ -7,8 +7,6 @@
 
 import Foundation
 
-
-
 public protocol Request{
     associatedtype Model
     /// relative request url
