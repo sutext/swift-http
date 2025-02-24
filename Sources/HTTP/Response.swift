@@ -16,7 +16,21 @@ extension DateFormatter{
         return result
     }()
 }
-
+extension HTTPURLResponse{
+    public var timestamp:TimeInterval{
+        if let datestr = allHeaderFields["Date"] as? String,
+           let date = DateFormatter.rfc822.date(from: datestr){
+            return date.timeIntervalSince1970
+        }
+        return Date().timeIntervalSince1970
+    }
+    public var headers:Headers?{
+        if let values = allHeaderFields as? [String:String] {
+            return Headers(values)
+        }
+        return nil
+    }
+}
 public struct Response<Value:Sendable>:Sendable{
     private let promise:Promise<Value>
     private let task:HTTPTask?
@@ -32,54 +46,44 @@ public struct Response<Value:Sendable>:Sendable{
         self.promise = .init(result)
         self.task = task
     }
-    init(promise: Promise<Value>, task: HTTPTask? = nil) {
+    init(_ promise: Promise<Value>, task: HTTPTask? = nil) {
         self.promise = promise
         self.task = task
     }
-    public lazy var headers:Headers? = {
-        if let values = task?.response?.allHeaderFields as? [String:String] {
-            return Headers(values)
-        }
-        return nil
-    }()
     public var progress:Progress? { task?.progress }
-    public var timestamp:TimeInterval{
-        if let datestr = task?.response?.allHeaderFields["Date"] as? String,
-           let date = DateFormatter.rfc822.date(from: datestr){
-            return date.timeIntervalSince1970
-        }
-        return Date().timeIntervalSince1970
-    }
-    public var statusCode:Int?{ task?.response?.statusCode }
-    /// @see `Promise.map(:)`
     @discardableResult
-    public func map<Other:Sendable>(_ onresult:@escaping @Sendable (Result<Value,Error>) -> Result<Other,Error> ) -> Response<Other>{
-        let p = promise.map(onresult)
-        return .init(promise: p, task: task)
+    public func modify(_ onresult:@escaping @Sendable (Result<Value,Error>,HTTPURLResponse)async throws -> Result<Value,Error> ) -> Self{
+        .init(promise.map({ r in
+            if let response = task?.response{
+                return try await onresult(r,response)
+            }
+            return r
+        }), task: task)
     }
     /// @see `Promise.map(:)`
     @discardableResult
-    public func map<Other:Sendable>(_ onresult:@escaping @Sendable (Result<Value,Error>) -> Promise<Other>) -> Response<Other>{
-        let p = promise.map(onresult)
-        return .init(promise: p, task: task)
+    public func map<Other:Sendable>(_ onresult:@escaping @Sendable (Result<Value,Error>)async throws -> Result<Other,Error> ) -> Response<Other>{
+        .init(promise.map(onresult), task: task)
+    }
+    /// @see `Promise.map(:)`
+    @discardableResult
+    public func map<Other:Sendable>(_ onresult:@escaping @Sendable (Result<Value,Error>)async throws -> Promise<Other>) -> Response<Other>{
+        .init(promise.map(onresult), task: task)
     }
     /// @see `Promise.then(:)`
     @discardableResult
-    public func then<Other:Sendable>(_ onresolved:@escaping @Sendable (Value) throws -> Other ) -> Response<Other>{
-        let p = promise.then(onresolved)
-        return .init(promise: p, task: task)
+    public func then<Other:Sendable>(_ onresolved:@escaping @Sendable (Value) async throws -> Other ) -> Response<Other>{
+        .init(promise.then(onresolved), task: task)
     }
     /// @see `Promise.then(:)`
     @discardableResult
-    public func then<Other:Sendable>(_ onresolved:@escaping @Sendable (Value)throws -> Promise<Other> ) -> Response<Other>{
-        let p = promise.then(onresolved)
-        return .init(promise: p, task: task)
+    public func then<Other:Sendable>(_ onresolved:@escaping @Sendable (Value)async throws -> Promise<Other> ) -> Response<Other>{
+        .init(promise.then(onresolved), task: task)
     }
     /// @see `Promise.catch(:)`
     @discardableResult
-    public func `catch`(_ onrejected:@escaping @Sendable (Error)throws -> Any? ) -> Response<Value>{
-        let p = promise.catch(onrejected)
-        return .init(promise: p, task: task)
+    public func `catch`(_ onrejected:@escaping @Sendable (Error) async throws -> Any? ) -> Self{
+        .init(promise.catch(onrejected), task: task)
     }
     /// @see `Promise.wait()`
     @discardableResult

@@ -81,28 +81,28 @@ class HTTPTask:@unchecked Sendable{
             $0.append(data)
         }
     }
-    func finish(_ error:Error?)->(TimeInterval,URLRequest?)? {
+    func finish(_ error:Error?)async->(TimeInterval,URLRequest?)? {
         guard case .completed = state else {
             return nil
         }
         if let error{
             self.error = error
-            return self.retry(when: error)
+            return await self.retry(when: error)
         }
         guard let resp = response else {
             let error = HTTP.Error.invalidResponse(resp: task.response)
             self.error = error
-            return self.retry(when: error)
+            return await self.retry(when: error)
         }
         guard [200,204,205].contains(resp.statusCode) else {
             let error = HTTP.Error.invalidStatus(code:resp.statusCode)
             self.error = error
-            return self.retry(when: error)
+            return await self.retry(when: error)
         }
         self.done()
         return nil
     }
-    func retry(when error:Error)->(TimeInterval,URLRequest?)?{
+    func retry(when error:Error) async->(TimeInterval,URLRequest?)?{
         if let delay = self.retrier?.doRetry(self, when: error) {
             return (delay,nil)
         }
@@ -111,7 +111,7 @@ class HTTPTask:@unchecked Sendable{
             return nil
         }
         do {
-            let req = try session.network.restart(error: error, request: request)
+            let req = try await session.network.restart(error: error, request: request)
             return (0,req)
         } catch  {
             self.error = error
@@ -121,9 +121,9 @@ class HTTPTask:@unchecked Sendable{
     }
     func done(){
         if let error{
-            self.promise.done(error,in: session.network.queue)
+            self.promise.done(error)
         }else{
-            self.promise.done(data,in: session.network.queue)
+            self.promise.done(data)
         }
     }
     func cleanup(){
@@ -176,28 +176,28 @@ class DownloadTask:HTTPTask,@unchecked Sendable{
         self.fileManager = fileManager
         super.init(task, session: session,retrier: nil)
     }
-    override func finish(_ error: Error?) -> (TimeInterval,URLRequest?)? {
+    override func finish(_ error: Error?)async -> (TimeInterval,URLRequest?)? {
         guard case .completed = state else {
             return nil
         }
         if let error{
             self.error = error
-            return self.retry(when: error)
+            return await self.retry(when: error)
         }
         guard let resp = response else {
             let error = HTTP.Error.invalidResponse(resp: task.response)
             self.error = error
-            return self.retry(when: error)
+            return await self.retry(when: error)
         }
         guard [200,204,205].contains(resp.statusCode) else {
             let error = HTTP.Error.invalidStatus(code:resp.statusCode)
             self.error = error
-            return self.retry(when: error)
+            return await self.retry(when: error)
         }
         guard let location = self.fileURL?.absoluteString else {
             let error = HTTP.Error.download(info:"invalid destination file url")
             self.error = error
-            return retry(when: error)
+            return await retry(when: error)
         }
         self.append(location.data(using: .utf8)!)
         self.done()

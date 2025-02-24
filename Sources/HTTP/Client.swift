@@ -21,8 +21,6 @@ extension HTTP{
         private var baseURL:URL?
         /// print debug log or not. override for custom
         open var debug:Bool{ false }
-        /// global callback queue by default use main queue.
-        open var queue:DispatchQueue { .main }
         /// global http method `.get` by default. override it in  options
         open var method:HTTP.Method{.get}
         /// global retryer  `nil` by default .override it in  options
@@ -46,32 +44,45 @@ extension HTTP{
         open func update(session:URLSession) { }
         ///  request hook function
         ///
-        /// - Yout can `override` it by custom filter in options.
         /// - You can change the request params by return .rewrite(request).
         /// - You can retrun a response directly by retrun .response(resp).
         /// - You can return a error directly  by throws a new error.
         ///
         /// - Throws: return an error directly
         /// - Parameters:
-        ///    - req: The original request
+        ///    - request: The original request
         /// - Returns: A `FilterResult` whtin none  rewrite or response
-        /// - Important: All download tasks are not filtered
+        ///
+        /// - Note: All download tasks do not require filter
         ///
         open func filter(request:URLRequest)throws ->FilterResult{ .none }
-        /// .responsse hook function
+        /// responsse hook function
         ///
-        /// - Yout can `override` it by custom verifier in options.
-        /// - You can change the response data by return .rewrite(data).
+        /// - You can change the response by return new resultt
         /// - You can change the error by throws a new error.
-        /// - You restart current task by retrun .restart(URLRequest).
         ///
         /// - Throws: A new Response Error
         /// - Parameters:
-        ///    - resp: The input Response
-        /// - Returns: A `VerifyResult` whtin none restart and rewrite.
-        /// - Important: All download tasks are not verified
+        ///    - result: The original result
+        ///    - response: The original http  response
+        /// - Returns: A new result
+        /// - Note: All download tasks do not require verification
         ///
-        open func restart(error:Swift.Error,request:URLRequest)throws ->URLRequest{ throw error }
+        open func modify(result:Result<Data,Swift.Error>,response:HTTPURLResponse)async throws -> Result<Data,Swift.Error>{
+            result
+        }
+        /// .responsse hook function
+        ///
+        /// - You can return a new request for restart
+        ///
+        /// - Throws: A new Response Error
+        /// - Parameters:
+        ///    - error: The original error
+        ///    - request: The original request
+        /// - Returns: A new `URLRequest` to be restart
+        /// - Note: All download tasks do not require retry mechanism
+        ///
+        open func restart(error:Swift.Error,request:URLRequest)async throws ->URLRequest{ throw error }
         
         /// Resolve the URLAuthenticationChallenge for the task.
         ///
@@ -111,8 +122,10 @@ extension HTTP.Client{
         guard let urlreq = result.value else{
             return .init(HTTP.Error.encode(result.error!))
         }
-        let resp = self.session.request(urlreq,retrier: retrier).then{ data in
-            try req.convert(data)
+        let resp = self.session.request(urlreq,retrier: retrier).modify{
+            try await self.modify(result: $0, response: $1)
+        }.then{ data in
+            try await req.convert(data)
         }
         if debug{
             resp.debugPrint()
@@ -145,7 +158,9 @@ extension HTTP.Client{
         guard let urlreq = result.value else{
             return .init(HTTP.Error.encode(result.error!))
         }
-        let resp = self.session.request(urlreq,retrier: retrier)
+        let resp = self.session.request(urlreq,retrier: retrier).modify{
+            try await self.modify(result: $0, response: $1)
+        }
         if debug{
             resp.debugPrint()
         }
@@ -179,8 +194,10 @@ extension HTTP.Client{
                 params: req.params,
                 headers: headers,
                 timeout: req.timeout,
-                fileManager: fileManager).then { data in
-                    try req.convert(data)
+                fileManager: fileManager).modify{
+                    try await self.modify(result: $0, response: $1)
+                }.then { data in
+                    try await req.convert(data)
                 }
         case .form(let data):
             resp = self.session.upload(
@@ -189,8 +206,10 @@ extension HTTP.Client{
                 params: req.params,
                 headers: headers,
                 timeout:req.timeout,
-                fileManager: fileManager).then { data in
-                    try req.convert(data)
+                fileManager: fileManager).modify{
+                    try await self.modify(result: $0, response: $1)
+                }.then { data in
+                    try await req.convert(data)
                 }
         }
         if debug{
@@ -229,7 +248,9 @@ extension HTTP.Client{
             params: params,
             headers: h,
             timeout: timeout,
-            fileManager: fileManager)
+            fileManager: fileManager).modify{
+                try await self.modify(result: $0, response: $1)
+            }
         if debug{
             resp.debugPrint()
         }

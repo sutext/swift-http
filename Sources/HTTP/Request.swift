@@ -8,7 +8,7 @@
 import Foundation
 
 public protocol Request{
-    associatedtype Model
+    associatedtype Model:Sendable
     /// relative request url
     var path: String{get}
     /// request params
@@ -16,14 +16,14 @@ public protocol Request{
     /// request options
     var options: HTTP.Options?{get}
     /// model convert method
-    func convert(_ data:Data)throws ->Model
+    func convert(_ data:Data)async throws ->Model
 }
 public enum Upload{
     case file(fileURL:URL)
     case form(data:FormData)
 }
 public protocol UploadRequest{
-    associatedtype Model
+    associatedtype Model:Sendable
     /// relative request url
     var url: String{get}
     /// request params
@@ -35,7 +35,7 @@ public protocol UploadRequest{
     /// upload timeout
     var timeout:TimeInterval?{get}
     /// model convert method
-    func convert(_ data:Data)throws ->Model
+    func convert(_ data:Data)async throws ->Model
     
 }
 public protocol DownloadRequest{

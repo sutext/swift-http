@@ -192,12 +192,14 @@ extension Session:URLSessionDataDelegate{
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         guard let req = self.$tasks[task.taskIdentifier] else{ return }
         self.remove(req)
-        if let retry = req.finish(error) {
-            rootQueue.asyncAfter(deadline: .now()+retry.0) {
-                req.restart(req:retry.1)
+        Task{
+            if let retry = await req.finish(error) {
+                self.rootQueue.asyncAfter(deadline: .now()+retry.0) {
+                    req.restart(req:retry.1)
+                }
+            }else{
+                req.cleanup()
             }
-        }else{
-            req.cleanup()
         }
     }
     func urlSession(_ session: URLSession, task: URLSessionTask, didSendBodyData bytesSent: Int64, totalBytesSent: Int64, totalBytesExpectedToSend: Int64) {
