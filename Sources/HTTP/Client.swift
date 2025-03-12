@@ -68,7 +68,7 @@ extension HTTP{
         /// - Returns: A new result
         /// - Note: All download tasks do not require verification
         ///
-        open func modify(result:Result<Data,Swift.Error>,response:HTTPURLResponse)async throws -> Result<Data,Swift.Error>{
+        open func modify(result:Result<Data,Swift.Error>,request:URLRequest,response:HTTPURLResponse)async throws -> Result<Data,Swift.Error>{
             result
         }
         /// .responsse hook function
@@ -122,8 +122,8 @@ extension HTTP.Client{
         guard let urlreq = result.value else{
             return .init(HTTP.Error.encode(result.error!))
         }
-        let resp = self.session.request(urlreq,retrier: retrier).modify{
-            try await self.modify(result: $0, response: $1)
+        let resp = self.session.request(urlreq,retrier: retrier).map{
+            try await self.modify(result: $0,request: $1, response: $2)
         }.then{ data in
             try await req.convert(data)
         }
@@ -158,8 +158,8 @@ extension HTTP.Client{
         guard let urlreq = result.value else{
             return .init(HTTP.Error.encode(result.error!))
         }
-        let resp = self.session.request(urlreq,retrier: retrier).modify{
-            try await self.modify(result: $0, response: $1)
+        let resp = self.session.request(urlreq,retrier: retrier).map{
+            try await self.modify(result: $0,request: $1, response: $2)
         }
         if debug{
             resp.debugPrint()
@@ -194,8 +194,8 @@ extension HTTP.Client{
                 params: req.params,
                 headers: headers,
                 timeout: req.timeout,
-                fileManager: fileManager).modify{
-                    try await self.modify(result: $0, response: $1)
+                fileManager: fileManager).map{
+                    try await self.modify(result: $0,request: $1, response: $2)
                 }.then { data in
                     try await req.convert(data)
                 }
@@ -206,8 +206,8 @@ extension HTTP.Client{
                 params: req.params,
                 headers: headers,
                 timeout:req.timeout,
-                fileManager: fileManager).modify{
-                    try await self.modify(result: $0, response: $1)
+                fileManager: fileManager).map{
+                    try await self.modify(result: $0,request: $1, response: $2)
                 }.then { data in
                     try await req.convert(data)
                 }
@@ -248,8 +248,8 @@ extension HTTP.Client{
             params: params,
             headers: h,
             timeout: timeout,
-            fileManager: fileManager).modify{
-                try await self.modify(result: $0, response: $1)
+            fileManager: fileManager).map{
+                try await self.modify(result: $0,request: $1, response: $2)
             }
         if debug{
             resp.debugPrint()

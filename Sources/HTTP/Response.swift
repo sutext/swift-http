@@ -51,46 +51,47 @@ public struct Response<Value:Sendable>:Sendable{
         self.task = task
     }
     public var progress:Progress? { task?.progress }
+    ///Map result to other. but keep the value type.
     @discardableResult
-    public func modify(_ onresult:@escaping @Sendable (Result<Value,Error>,HTTPURLResponse)async throws -> Result<Value,Error> ) -> Self{
+    func map(_ onresult:@escaping @Sendable (Result<Value,Error>,URLRequest,HTTPURLResponse)async throws -> Result<Value,Error> ) -> Self{
         .init(promise.map({ r in
-            if let response = task?.response{
-                return try await onresult(r,response)
+            if let request = task?.request,let response = task?.response{
+                return try await onresult(r,request,response)
             }
             return r
         }), task: task)
     }
-    /// @see `Promise.map(:)`
+    /// - SeeAlso `Promise.map(:)`
     @discardableResult
     public func map<Other:Sendable>(_ onresult:@escaping @Sendable (Result<Value,Error>)async throws -> Result<Other,Error> ) -> Response<Other>{
         .init(promise.map(onresult), task: task)
     }
-    /// @see `Promise.map(:)`
+    /// - SeeAlso `Promise.map(:)`
     @discardableResult
     public func map<Other:Sendable>(_ onresult:@escaping @Sendable (Result<Value,Error>)async throws -> Promise<Other>) -> Response<Other>{
         .init(promise.map(onresult), task: task)
     }
-    /// @see `Promise.then(:)`
+    /// - SeeAlso `Promise.then(:)`
     @discardableResult
     public func then<Other:Sendable>(_ onresolved:@escaping @Sendable (Value) async throws -> Other ) -> Response<Other>{
         .init(promise.then(onresolved), task: task)
     }
-    /// @see `Promise.then(:)`
+    /// - SeeAlso `Promise.then(:)`
     @discardableResult
     public func then<Other:Sendable>(_ onresolved:@escaping @Sendable (Value)async throws -> Promise<Other> ) -> Response<Other>{
         .init(promise.then(onresolved), task: task)
     }
-    /// @see `Promise.catch(:)`
+    /// - SeeAlso `Promise.catch(:)`
     @discardableResult
     public func `catch`(_ onrejected:@escaping @Sendable (Error) async throws -> Any? ) -> Self{
         .init(promise.catch(onrejected), task: task)
     }
-    /// @see `Promise.wait()`
+    /// - SeeAlso `Promise.wait()`
     @discardableResult
     public func wait()async throws -> Value{
         try await promise.wait()
     }
-    /// @see `Promise.finally()`
+    /// - SeeAlso `Promise.finally()`
     public func finally(_ handler:@escaping @Sendable (Result<Value,Error>)->Void ){
         promise.finally(handler)
     }
