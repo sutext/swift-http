@@ -1,5 +1,5 @@
 //
-//  Network.swift
+//  Monitor.swift
 //
 //
 //  Created by supertext on 2023/4/28.
@@ -7,7 +7,8 @@
 
 import Network
 
-public class Network{
+
+class Monitor{
     private static let StatusChanged:Notification.Name = .init("swifthttp.network.status.changed")
     private static let monitor:NWPathMonitor = NWPathMonitor()
     private static let notify:NotificationCenter = .init()
@@ -71,7 +72,7 @@ public class Network{
 #if os(iOS)
 import CoreTelephony
 import SystemConfiguration.CaptiveNetwork
-extension Network {
+extension Monitor {
     private static let InterfaceChanged: Notification.Name = .init("swifthttp.network.mode.changed")
     // Property to hold the current network type
     public private(set) static var interface: Interface = .none {
@@ -147,7 +148,7 @@ extension Network {
     }
 }
 
-extension Network {
+extension Monitor {
     // Define network interface enumeration
     public enum Interface : CustomStringConvertible{
         case none

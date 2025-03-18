@@ -34,44 +34,43 @@ extension HTTP{
         case connect = "CONNECT"
         case options = "OPTIONS"
     }
+    
 }
-extension Result{
-    var error:Failure?{
-        if case .failure(let err) = self {
-            return err
-        }
-        return nil
-    }
-    var value:Success?{
-        if case .success(let value) = self {
-            return value
-        }
-        return nil
-    }
-}
-///HTTP request Parameters
-public typealias JSONParams = [String:JSONValue]
 
 /// Request Parameters protocol
 /// Do not declare new conformances to this protocol
 /// they will not work as expected.
-public protocol Parameters{
-    var contentType:String?{ get }
-    func bodyData()throws->Data
+///
+public protocol HTTPParams{
+    var httpBody:Data?{ get }
 }
-extension JSONParams:Parameters{
-    public var contentType: String?{
-        "application/json"
-    }
-    public func bodyData() throws -> Data {
-        try JSONSerialization.data(withJSONObject: self)
-    }
+
+///HTTP request Parameters
+public typealias JSONParams = [String:any JSONValue]
+extension JSONParams:HTTPParams{
+    public var httpBody:Data? { try? JSONSerialization.data(withJSONObject: self) }
 }
-extension Array:Parameters where Element == JSONParams{
-    public var contentType: String?{
-        "application/json"
-    }
-    public func bodyData() throws -> Data {
-        try JSONSerialization.data(withJSONObject: self)
+
+extension Array:HTTPParams where Element == JSONParams{
+    public var httpBody:Data? { try? JSONSerialization.data(withJSONObject: self) }
+}
+
+extension JSON: HTTPParams{
+    public var httpBody:Data?  {
+        switch self {
+        case .object(let object): // key-value
+            let value = object.compactMapValues{ $0.compactValue }
+            return try? JSONSerialization.data(withJSONObject: value)
+        case .array(let array):// key-value array
+            let value = array.compactMap { json in
+                if case .object(let object) = self {
+                    return object.compactMapValues{ $0.compactValue }
+                }
+                return nil
+            }
+            return try? JSONSerialization.data(withJSONObject: value)
+        default:// simple value got nil
+            return nil
+        }
     }
 }

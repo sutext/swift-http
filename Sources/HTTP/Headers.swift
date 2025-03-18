@@ -18,7 +18,7 @@ public struct Headers :Sendable{
         case contentDisposition = "Content-Disposition"
         case userAgent          = "User-Agent"
     }
-    public private(set) var values: [String:String] = [:]
+    public private(set) var values: [String:String]
     public init(_ values:[String:String]? = nil) {
         self.values = values ?? [:]
     }
@@ -44,23 +44,11 @@ public struct Headers :Sendable{
     }
     public subscript(_ name: String) -> String? {
         get { values[name] }
-        set {
-            if let value = newValue {
-                values[name] = value
-            } else {
-                values.removeValue(forKey: name)
-            }
-        }
+        set { values[name] = newValue }
     }
     public subscript(_ field: Field) -> String? {
         get { values[field.rawValue] }
-        set {
-            if let value = newValue {
-                values[field.rawValue] = value
-            } else {
-                values.removeValue(forKey: field.rawValue)
-            }
-        }
+        set { values[field.rawValue] = newValue }
     }
     public static var `default`:Headers = [
         .userAgent:defaultUserAgent,

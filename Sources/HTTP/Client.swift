@@ -61,7 +61,7 @@ extension HTTP{
         /// - You can change the response by return new resultt
         /// - You can change the error by throws a new error.
         ///
-        /// - Throws: A new Response Error
+        /// - Throws: A new  Error to be response
         /// - Parameters:
         ///    - result: The original result
         ///    - response: The original http  response
@@ -75,14 +75,14 @@ extension HTTP{
         ///
         /// - You can return a new request for restart
         ///
-        /// - Throws: A new Response Error
+        /// - Throws: A new  Error to be response
         /// - Parameters:
         ///    - error: The original error
         ///    - request: The original request
         /// - Returns: A new `URLRequest` to be restart
         /// - Note: All download tasks do not require retry mechanism
         ///
-        open func restart(error:Swift.Error,request:URLRequest)async throws ->URLRequest{ throw error }
+        open func restart(request:URLRequest,error:Swift.Error)async throws ->URLRequest{ throw error }
         
         /// Resolve the URLAuthenticationChallenge for the task.
         ///
@@ -100,37 +100,17 @@ extension HTTP{
 extension HTTP.Client{
     ///
     /// Send an common data request
-    /// 
+    ///
+    /// - SeeAlso: `requesst(_:params:options:)`
     /// - Parameters:
-    ///    - req: The `AMRequest` protocol instance
-    /// - Returns: Thre request handler for task control and progress control
+    ///    - req: The `Request` protocol instance
+    /// - Returns: `Response<Data>` A handler for task control and progress control
     ///
     @discardableResult
     public func request<R:Request>(_ req:R)->Response<R.Model>{
-        guard let baseURL = req.options?.baseURL ?? self.baseURL ,
-              let url = URL(string:req.path,relativeTo:baseURL) else {
-            return .init(HTTP.Error.invalidURL(url:req.path))
-        }
-        let method = req.options?.method ?? self.method
-        let timeout = req.options?.timeout ?? self.timeout
-        let retrier = req.options?.retrier ?? self.retrier
-        var headers = Headers(self.headers)
-        if let h = req.options?.headers {
-            headers.merge(h)
-        }
-        let result = HTTPEncoder.encode(url, method: method, params: req.params, headers: headers, timeout: timeout)
-        guard let urlreq = result.value else{
-            return .init(HTTP.Error.encode(result.error!))
-        }
-        let resp = self.session.request(urlreq,retrier: retrier).map{
-            try await self.modify(result: $0,request: $1, response: $2)
-        }.then{ data in
+        return self.request(req.path,params: req.params,options: req.options).then { _,data in
             try await req.convert(data)
         }
-        if debug{
-            resp.debugPrint()
-        }
-        return resp
     }
     ///
     /// Send a simple data request directly
@@ -139,10 +119,10 @@ extension HTTP.Client{
     ///    - path: The request relative to th baseURL
     ///    - params: The request params
     ///    - options: The current request options
-    /// - Returns: Thre request handler for task control and progress control
+    /// - Returns: `Response<Data>` A handler for task control and progress control
     ///
     @discardableResult
-    public func request(_  path:String,params:Parameters?=nil,options:HTTP.Options?=nil)->Response<Data>{
+    public func request(_  path:String,params:HTTPParams?=nil,options:HTTP.Options?=nil)->Response<Data>{
         guard let baseURL = options?.baseURL ?? self.baseURL ,
               let url = URL(string:path,relativeTo:baseURL) else {
             return .init(HTTP.Error.invalidURL(url:path))
@@ -154,12 +134,29 @@ extension HTTP.Client{
         if let h = options?.headers {
             headers.merge(h)
         }
-        let result = HTTPEncoder.encode(url, method: method, params: params, headers: headers, timeout: timeout)
-        guard let urlreq = result.value else{
-            return .init(HTTP.Error.encode(result.error!))
+        do {
+            let urlreq = try HTTPEncoder.encode(url, method: method, params: params, headers: headers, timeout: timeout)
+            let resp = self.session.request(urlreq,retrier: retrier).map{
+                guard let request = $0?.request,let response = $0?.response else{
+                    return $1
+                }
+                return try await self.modify(result: $1,request: request, response: response)   
+            }
+            if debug{
+                resp.debugPrint()
+            }
+            return resp
+        } catch {
+            return .init(error)
         }
-        let resp = self.session.request(urlreq,retrier: retrier).map{
-            try await self.modify(result: $0,request: $1, response: $2)
+    }
+    @discardableResult
+    public func request(_ request:URLRequest)->Response<Data>{
+        let resp = self.session.request(request,retrier: retrier).map{
+            guard let request = $0?.request,let response = $0?.response else{
+                return $1
+            }
+            return try await self.modify(result: $1,request: request, response: response)
         }
         if debug{
             resp.debugPrint()
@@ -168,64 +165,32 @@ extension HTTP.Client{
     }
     /// Send an file upload  request
     ///
+    /// - SeeAlso: `upload(_:to:paramse:headers:timeout:)`
     /// - Parameters:
-    ///    - req: The `AMFileUpload` protocol instance
-    ///    - completion: The data request completion call back
-    /// - Returns: Thre request handler for task control and progress control
+    ///    - req: The `UploadRequest` protocol instance
+    /// - Returns: `Response<Data>` A handler for task control and progress control
     ///
     @discardableResult
     public func upload<R:UploadRequest>(_ req:R)->Response<R.Model>{
-        guard let url = URL(string:req.url) else {
-            return .init(HTTP.Error.invalidURL(url:req.url))
-        }
-        var headers = Headers(self.headers)
-        if let h = req.headers {
-            headers.merge(h)
-        }
-        let resp:Response<R.Model>
         switch req.upload{
         case .file(let fileURL):
-            if headers[.contentType] == nil{
-                headers[.contentType] = "application/octet-stream"
+            return self.upload(fileURL, to: req.url,params: req.params,headers: req.headers,timeout: req.timeout).then {_, data in
+                try await req.convert(data)
             }
-            resp = self.session.upload(
-                url,
-                file: fileURL,
-                params: req.params,
-                headers: headers,
-                timeout: req.timeout,
-                fileManager: fileManager).map{
-                    try await self.modify(result: $0,request: $1, response: $2)
-                }.then { data in
-                    try await req.convert(data)
-                }
         case .form(let data):
-            resp = self.session.upload(
-                url,
-                form: data,
-                params: req.params,
-                headers: headers,
-                timeout:req.timeout,
-                fileManager: fileManager).map{
-                    try await self.modify(result: $0,request: $1, response: $2)
-                }.then { data in
-                    try await req.convert(data)
-                }
+            return self.upload(data, to: req.url,params: req.params,headers: req.headers,timeout: req.timeout).then {_, data in
+                try await req.convert(data)
+            }
         }
-        if debug{
-            resp.debugPrint()
-        }
-        return resp
     }
-    /// Upload an local file to server.
+    /// Upload an local file  or form data to server.
     ///
     /// - Parameters:
     ///    - file: The fileURL to be upload
     ///    - to: The relative upload path
     ///    - parmas: The upload request params
     ///    - options: The upload request options
-    ///    - completion: The data request completion call back
-    /// - Returns: Thre request handler for task control and progress control
+    /// - Returns: `Response<Data>` A handler for task control and progress control
     ///
     @discardableResult
     public func upload(
@@ -242,6 +207,9 @@ extension HTTP.Client{
         if let headers{
             h.merge(headers)
         }
+        if h[.contentType] == nil{
+            h[.contentType] = "application/octet-stream"
+        }
         let resp = self.session.upload(
             url,
             file: file,
@@ -249,7 +217,52 @@ extension HTTP.Client{
             headers: h,
             timeout: timeout,
             fileManager: fileManager).map{
-                try await self.modify(result: $0,request: $1, response: $2)
+                guard let request = $0?.request,let response = $0?.response else{
+                    return $1
+                }
+                return try await self.modify(result: $1,request: request, response: response)
+            }
+        if debug{
+            resp.debugPrint()
+        }
+        return resp
+            
+    }
+    /// Upload an local file to server.
+    ///
+    /// - Parameters:
+    ///    - data: The  form data to be upload
+    ///    - to: The relative upload path
+    ///    - parmas: The upload request params
+    ///    - options: The upload request options
+    /// - Returns: `Response<Data>` A handler for task control and progress control
+    ///
+    @discardableResult
+    public func upload(
+        _ data:FormData,
+        to url:String,
+        params:JSONParams?=nil,
+        headers:[String:String]?=nil,
+        timeout:TimeInterval? = nil)->Response<Data>
+    {
+        guard let url = URL(string:url) else {
+            return .init(HTTP.Error.invalidURL(url:url))
+        }
+        var h = Headers(self.headers)
+        if let headers{
+            h.merge(headers)
+        }
+        let resp = self.session.upload(
+            url,
+            form: data,
+            params: params,
+            headers: h,
+            timeout: timeout,
+            fileManager: fileManager).map{
+                guard let request = $0?.request,let response = $0?.response else{
+                    return $1
+                }
+                return try await self.modify(result: $1,request: request, response: response)
             }
         if debug{
             resp.debugPrint()
@@ -258,11 +271,11 @@ extension HTTP.Client{
             
     }
     /// Send an file download  request
-    /// - Note: If `transfer` is not specified, The download file will not be deleted until the system purges the temporary files. And the temporary file will been returned.
+    ///
+    /// - SeeAlso: `download(_:params:headers:timeout:transfer:)`
     /// - Parameters:
-    ///    - req: The `AMDownload` protocol instance
-    ///    - completion: Call back the transfered file location.
-    /// - Returns: Thre request handler for task control and progress control
+    ///    - req: The `DownloadRequest` protocol instance
+    /// - Returns: `Response<Data>` A handler for task control and progress control
     ///
     @discardableResult
     public func download<R:DownloadRequest>(_ req:R)->Response<Data>{
@@ -288,8 +301,9 @@ extension HTTP.Client{
     ///    - params: The download request parameters
     ///    - headers: The download request headers
     ///    - transfer: The download file transfer
-    ///    - completion: Call back the temporary file location. At this time transfer not suport
-    /// - Returns: Thre request handler for task control and progress control
+    /// - Returns: `Response<Data>` A handler for task control and progress control
+    ///
+    /// - Note: If `transfer` is not specified, The download file will not be deleted until the system purges the temporary files. And the temporary file will been returned.
     ///
     @discardableResult
     public func download(

@@ -10,11 +10,11 @@ import Foundation
 public protocol Request{
     associatedtype Model:Sendable
     /// relative request url
-    var path: String{get}
+    var path: String{ get }
     /// request params
-    var params: Parameters?{get}
+    var params: HTTPParams?{ get }
     /// request options
-    var options: HTTP.Options?{get}
+    var options: HTTP.Options?{ get }
     /// model convert method
     func convert(_ data:Data)async throws ->Model
 }
@@ -25,29 +25,29 @@ public enum Upload{
 public protocol UploadRequest{
     associatedtype Model:Sendable
     /// relative request url
-    var url: String{get}
+    var url: String{ get }
     /// request params
-    var params: JSONParams?{get}
+    var params: JSONParams?{ get }
     /// uplload content
-    var upload:Upload{get}
+    var upload:Upload{ get }
     /// http headers
-    var headers:[String:String]?{get}
+    var headers:[String:String]?{ get }
     /// upload timeout
-    var timeout:TimeInterval?{get}
+    var timeout:TimeInterval?{ get }
     /// model convert method
     func convert(_ data:Data)async throws ->Model
     
 }
 public protocol DownloadRequest{
     /// full download url
-    var url: String{get}
+    var url: String{ get }
     /// url params coding
-    var params: JSONParams?{get}
+    var params: JSONParams?{ get }
     /// http headers
-    var headers: [String:String]?{get}
+    var headers: [String:String]?{ get }
     /// download timeout
-    var timeout:TimeInterval?{get}
+    var timeout:TimeInterval?{ get }
     /// resolve download file location
-    var transfer:FileTransfer?{get}
+    var transfer:FileTransfer?{ get }
     
 }

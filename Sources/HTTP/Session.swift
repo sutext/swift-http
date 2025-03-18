@@ -50,11 +50,8 @@ class Session:NSObject{
         timeout:TimeInterval? = nil,
         fileManager:FileManager = .default)->Response<Data>
     {
-        let result = URLEncoder.query.encode(url, method: .post, params: params, headers: headers, timeout: timeout ?? 0)
-        guard var urlreq = result.value else{
-            return .init(HTTP.Error.encode(result.error!))
-        }
         do {
+            var urlreq = try URLEncoder.query.encode(url, method: .post, params: params, headers: headers, timeout: timeout ?? 0)
             let fr = try self.network.filter(request: urlreq)
             switch fr{
             case .response(let resp):
@@ -64,13 +61,13 @@ class Session:NSObject{
             case .none:
                 break
             }
+            let task = self.session.uploadTask(with: urlreq, fromFile: file)
+            let req = UploadTask(task,session: self,fileManager: fileManager)
+            self.add(req)
+            return .init(req)
         } catch {
             return .init(error)
         }
-        let task = self.session.uploadTask(with: urlreq, fromFile: file)
-        let req = UploadTask(task,session: self,fileManager: fileManager)
-        self.add(req)
-        return .init(req)
     }
     func upload(
         _ url:URL,
@@ -80,12 +77,9 @@ class Session:NSObject{
         timeout:TimeInterval? = nil,
         fileManager:FileManager = .default)->Response<Data>
     {
-        let result = URLEncoder.query.encode(url, method: .post, params: params, headers: headers, timeout: 0)
-        guard var urlreq = result.value else{
-            return .init(HTTP.Error.encode(result.error!))
-        }
-        urlreq.setHeader(form.contentType, for: .contentType)
         do {
+            var urlreq = try URLEncoder.query.encode(url, method: .post, params: params, headers: headers, timeout: 0)
+            urlreq.setHeader(form.contentType, for: .contentType)
             let fr = try self.network.filter(request: urlreq)
             switch fr{
             case .response(let resp):
@@ -130,14 +124,15 @@ class Session:NSObject{
         fileManager:FileManager = .default,
         transfer:FileTransfer? = nil)->Response<Data>
     {
-        let result = URLEncoder.query.encode(url, method: .get, params: params, headers: headers, timeout: timeout ?? 0)
-        guard let urlreq = result.value else{
-            return .init(HTTP.Error.encode(result.error!))
+        do {
+            let urlreq = try URLEncoder.query.encode(url, method: .get, params: params, headers: headers, timeout: timeout ?? 0)
+            let task = self.session.downloadTask(with: urlreq)
+            let req = DownloadTask(task,session: self, transfer: transfer, fileManager: fileManager)
+            self.add(req)
+            return .init(req)
+        } catch  {
+            return .init(error)
         }
-        let task = self.session.downloadTask(with: urlreq)
-        let req = DownloadTask(task,session: self, transfer: transfer, fileManager: fileManager)
-        self.add(req)
-        return .init(req)
     }
 }
 

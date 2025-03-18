@@ -9,10 +9,12 @@ import Foundation
 
 /// `Request` is the common superclass of all request types and provides common state  and callback handling.
 /// - Note provides progress interface for any request
-class HTTPTask:@unchecked Sendable{
+public class HTTPTask:@unchecked Sendable{
+    private let session:Session
     private(set) var task:URLSessionTask
     @Safely private(set) var data: Data = Data()
-    private let session:Session
+    /// some error if occured
+    var error:Error?
     let promise:Promise<Data>
     init(
         _ task:URLSessionTask,
@@ -23,42 +25,40 @@ class HTTPTask:@unchecked Sendable{
         self.session = session
         self.retrier  = retrier
     }
-    /// some error if occured
-    var error:Error?
     /// current retrier if present
-    var retrier:Retrier?
+    public var retrier:Retrier?
     /// the metrics of current task
-    var metrics:URLSessionTaskMetrics?
+    public var metrics:URLSessionTaskMetrics?
     /// the unique identifier of current request
-    var id:Int { task.taskIdentifier }
+    public var id:Int { task.taskIdentifier }
     /// the original request url
-    var url:String? { request?.url?.absoluteString }
+    public var url:String? { request?.url?.absoluteString }
     /// the current task state
-    var state:URLSessionTask.State{ task.state }
+    public var state:URLSessionTask.State{ task.state }
     /// the current url request
-    var request:URLRequest? { task.originalRequest }
+    public var request:URLRequest? { task.originalRequest }
     /// the total request duration in metrics
-    var duration:TimeInterval? { metrics?.taskInterval.duration }
+    public var duration:TimeInterval? { metrics?.taskInterval.duration }
     /// the curren task progress
-    var progress:Progress { task.progress }
+    public var progress:Progress { task.progress }
     /// the current http url respone
-    var response:HTTPURLResponse?{ task.response as? HTTPURLResponse }
+    public var response:HTTPURLResponse?{ task.response as? HTTPURLResponse }
     /// the current http status code
-    var statusCode:Int?{  response?.statusCode  }
+    public var statusCode:Int?{  response?.statusCode  }
     /// the current http method
-    var method:HTTP.Method? {
+    public var method:HTTP.Method? {
         guard let str = request?.httpMethod else {
             return nil
         }
         return .init(rawValue: str)
     }
-    func resume()  {
+    public func resume()  {
         task.resume()
     }
-    func cancel()  {
+    public func cancel()  {
         task.cancel()
     }
-    func suspend()  {
+    public func suspend()  {
         task.suspend()
     }
     /// restart a task if completed.
@@ -111,7 +111,7 @@ class HTTPTask:@unchecked Sendable{
             return nil
         }
         do {
-            let req = try await session.network.restart(error: error, request: request)
+            let req = try await session.network.restart(request: request,error: error)
             return (0,req)
         } catch  {
             self.error = error

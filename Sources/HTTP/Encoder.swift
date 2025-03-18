@@ -7,17 +7,25 @@
 
 import Foundation
 
-public struct HTTPEncoder{
-    static func encode(
+public protocol Encoder{
+    func encode(
+        _ url:URL,
+        method:HTTP.Method,
+        params:HTTPParams?,
+        headers:Headers?,
+        timeout:TimeInterval)throws -> URLRequest
+}
+public struct JSONEncoding{
+    func encode(
         _ url: URL,
         method: HTTP.Method,
-        params: Parameters?,
+        params: HTTPParams?,
         headers:Headers?,
-        timeout: TimeInterval) -> Result<URLRequest,Swift.Error>
+        timeout: TimeInterval)throws -> URLRequest
     {
         switch method {
         case .get,.head,.delete,.connect:
-            return URLEncoder.query.encode(url, method: method, params: params as? JSONParams, headers: headers, timeout: timeout)
+            return try URLEncoder.query.encode(url, method: method, params: params as? JSONParams, headers: headers, timeout: timeout)
         default:
             break
         }
@@ -25,15 +33,57 @@ public struct HTTPEncoder{
         urlRequest.allHTTPHeaderFields = headers?.values
         urlRequest.httpMethod = method.rawValue
         guard let params else {
-            return .success(urlRequest)
-        }
-        if let contentType = params.contentType{
-            urlRequest.setHeader(contentType, for: .contentType)
-        }
-        return .init{
-            urlRequest.httpBody = try params.bodyData()
             return urlRequest
         }
+        urlRequest.setHeader("application/json", for: .contentType)
+        urlRequest.httpBody = params.httpBody
+        return urlRequest
+    }
+}
+public struct ProtobufEncoder:Encoder{
+    public func encode(_ url: URL, method: HTTP.Method, params: (any HTTPParams)?, headers: Headers?, timeout: TimeInterval) throws -> URLRequest {
+        switch method {
+        case .get,.head,.delete,.connect:
+            return try URLEncoder.query.encode(url, method: method, params: params as? JSONParams, headers: headers, timeout: timeout)
+        default:
+            break
+        }
+        var urlRequest = URLRequest(url:url , cachePolicy: .useProtocolCachePolicy, timeoutInterval: timeout)
+        urlRequest.allHTTPHeaderFields = headers?.values
+        urlRequest.httpMethod = method.rawValue
+        guard let params else {
+            return urlRequest
+        }
+        urlRequest.setHeader("application/json", for: .contentType)
+        urlRequest.httpBody = params.httpBody
+        return urlRequest
+    }
+}
+public struct HTTPEncoder{
+    static func encode(
+        _ url: URL,
+        method: HTTP.Method,
+        params: HTTPParams?,
+        headers:Headers?,
+        timeout: TimeInterval)throws -> URLRequest
+    {
+        switch method {
+        case .get,.head,.delete,.connect:
+            return try URLEncoder.query.encode(url, method: method, params: params as? JSONParams, headers: headers, timeout: timeout)
+        default:
+            break
+        }
+        var urlRequest = URLRequest(url:url , cachePolicy: .useProtocolCachePolicy, timeoutInterval: timeout)
+        urlRequest.allHTTPHeaderFields = headers?.values
+        urlRequest.httpMethod = method.rawValue
+        guard let params else {
+            return urlRequest
+        }
+//        if let contentType = params.contentType{
+//            urlRequest.setHeader(contentType, for: .contentType)
+//        }
+        urlRequest.httpBody = params.httpBody
+        return urlRequest
     }
 }
 /// Creates a url-encoded query string to be set as or appended to any existing URL query string or set as the HTTP
@@ -87,16 +137,16 @@ public struct URLEncoder{
         method:HTTP.Method,
         params:JSONParams?,
         headers:Headers?,
-        timeout:TimeInterval)-> Result<URLRequest,Swift.Error>
+        timeout:TimeInterval)throws -> URLRequest
     {
         var urlRequest = URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: timeout)
         urlRequest.httpMethod = method.rawValue
         urlRequest.allHTTPHeaderFields = headers?.values
         guard let params else {
-            return .success(urlRequest)
+            return urlRequest
         }
         guard let params = JSON(params).object else{
-            return .failure(HTTP.Error.invalidParams(info: "URLEncoder only suport HTTPParams(key-value encode)"))
+            throw HTTP.Error.invalidParams(info: "URLEncoder only suport HTTPParams(key-value encode)")
         }
         if destination.needEncodeInURL(for: method) {
             if var urlComponents = URLComponents(url: url, resolvingAgainstBaseURL: true) {
@@ -108,7 +158,7 @@ public struct URLEncoder{
             urlRequest.setHeader("application/x-www-form-urlencoded; charset=utf-8", for: .contentType)
             urlRequest.httpBody = Data(query(params).utf8)
         }
-        return .success(urlRequest)
+        return urlRequest
     }
 }
 
@@ -185,43 +235,44 @@ extension URLEncoder{
 
         func needEncodeInURL(for method: HTTP.Method) -> Bool {
             switch self {
-            case .methodDependent: return [.get, .head, .delete,.connect].contains(method)
+            case .methodDependent: return [.get, .head, .delete, .connect].contains(method)
             case .queryString: return true
             case .httpBody: return false
             }
         }
     }
-}
-/// Configures how `Array` parameters are encoded.
-public enum ArrayEncoder {
-    /// An empty set of square brackets is appended to the key for every value. This is the default behavior.
-    case brackets
-    /// No brackets are appended. The key is encoded as is.
-    case noBrackets
+    /// Configures how `Array` parameters are encoded.
+    public enum ArrayEncoder {
+        /// An empty set of square brackets is appended to the key for every value. This is the default behavior.
+        case brackets
+        /// No brackets are appended. The key is encoded as is.
+        case noBrackets
 
-    func encode(key: String) -> String {
-        switch self {
-        case .brackets:
-            return "\(key)[]"
-        case .noBrackets:
-            return key
+        func encode(key: String) -> String {
+            switch self {
+            case .brackets:
+                return "\(key)[]"
+            case .noBrackets:
+                return key
+            }
+        }
+    }
+
+    /// Configures how `Bool` parameters are encoded.
+    public enum BoolEncoder {
+        /// Encode `true` as `1` and `false` as `0`. This is the default behavior.
+        case numeric
+        /// Encode `true` and `false` as string literals.
+        case literal
+
+        func encode(value: Bool) -> String {
+            switch self {
+            case .numeric:
+                return value ? "1" : "0"
+            case .literal:
+                return value ? "true" : "false"
+            }
         }
     }
 }
 
-/// Configures how `Bool` parameters are encoded.
-public enum BoolEncoder {
-    /// Encode `true` as `1` and `false` as `0`. This is the default behavior.
-    case numeric
-    /// Encode `true` and `false` as string literals.
-    case literal
-
-    func encode(value: Bool) -> String {
-        switch self {
-        case .numeric:
-            return value ? "1" : "0"
-        case .literal:
-            return value ? "true" : "false"
-        }
-    }
-}

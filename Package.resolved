@@ -5,8 +5,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sutext/swift-json",
       "state" : {
-        "revision" : "c7a1c51d73d81db701af80ac505928faeb459510",
-        "version" : "2.0.1"
+        "revision" : "e740daf38a6f6ee2cbf8a21fcef438ba0b62b4ee",
+        "version" : "2.2.1"
       }
     },
     {
@@ -14,8 +14,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sutext/swift-promise",
       "state" : {
-        "revision" : "553a174fa9b482177f5e8f3737952aecde061c66",
-        "version" : "2.0.0"
+        "revision" : "a40b8d605aa55c74ec1631daad7a59a5ce5fb075",
+        "version" : "2.0.2"
       }
     }
   ],
