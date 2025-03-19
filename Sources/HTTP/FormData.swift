@@ -57,13 +57,13 @@ public final class FormData {
     }
 
     class BodyPart {
-        let headers: Headers
+        let headers: HTTP.Headers
         let bodyStream: InputStream
         let bodyContentLength: UInt64
         var hasInitialBoundary = false
         var hasFinalBoundary = false
 
-        init(headers: Headers, bodyStream: InputStream, bodyContentLength: UInt64) {
+        init(headers: HTTP.Headers, bodyStream: InputStream, bodyContentLength: UInt64) {
             self.headers = headers
             self.bodyStream = bodyStream
             self.bodyContentLength = bodyContentLength
@@ -284,7 +284,7 @@ public final class FormData {
     ///   - stream:  `InputStream` to encode into the instance.
     ///   - length:  Length, in bytes, of the stream.
     ///   - headers: `Headers` for the body part.
-    public func append(_ stream: InputStream, withLength length: UInt64, headers: Headers) {
+    public func append(_ stream: InputStream, withLength length: UInt64, headers: HTTP.Headers) {
         let bodyPart = BodyPart(headers: headers, bodyStream: stream, bodyContentLength: length)
         bodyParts.append(bodyPart)
     }
@@ -500,11 +500,11 @@ public final class FormData {
 
     // MARK: - Private - Content Headers
 
-    private func contentHeaders(withName name: String, fileName: String? = nil, mimeType: String? = nil) -> Headers {
+    private func contentHeaders(withName name: String, fileName: String? = nil, mimeType: String? = nil) -> HTTP.Headers {
         var disposition = "form-data; name=\"\(name)\""
         if let fileName = fileName { disposition += "; filename=\"\(fileName)\"" }
 
-        var headers: Headers = [.contentDisposition:disposition]
+        var headers: HTTP.Headers = [.contentDisposition:disposition]
         if let mimeType = mimeType {
             headers[.contentType] = mimeType
         }

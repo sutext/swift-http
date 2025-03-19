@@ -27,7 +27,7 @@ public protocol UploadRequest{
     /// relative request url
     var url: String{ get }
     /// request params
-    var params: JSONParams?{ get }
+    var params: URLParams?{ get }
     /// uplload content
     var upload:Upload{ get }
     /// http headers
@@ -42,7 +42,7 @@ public protocol DownloadRequest{
     /// full download url
     var url: String{ get }
     /// url params coding
-    var params: JSONParams?{ get }
+    var params: URLParams?{ get }
     /// http headers
     var headers: [String:String]?{ get }
     /// download timeout

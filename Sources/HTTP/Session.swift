@@ -18,14 +18,14 @@ class Session:NSObject{
         queue.underlyingQueue = rootQueue
         queue.qualityOfService = .default
         let session = URLSession(configuration: config,delegate: self,delegateQueue: queue)
-        network.update(session: session)
+        client.update(session: session)
         return session
     }()
-    weak var network:HTTP.Client!
-    func request(_ req:URLRequest, retrier:Retrier? = nil)->Response<Data>{
+    weak var client:HTTP.Client!
+    func request(_ req:URLRequest, retrier:HTTP.Retrier? = nil)->Response<Data>{
         var urlreq = req
         do {
-            let fr = try self.network.filter(request: urlreq)
+            let fr = try self.client.filter(request: urlreq)
             switch fr{
             case .response(let resp):
                 return .init(resp)
@@ -45,14 +45,14 @@ class Session:NSObject{
     func upload(
         _ url:URL,
         file:URL,
-        params:JSONParams?,
-        headers:Headers?,
+        params:URLParams?,
+        headers:HTTP.Headers?,
         timeout:TimeInterval? = nil,
         fileManager:FileManager = .default)->Response<Data>
     {
         do {
-            var urlreq = try URLEncoder.query.encode(url, method: .post, params: params, headers: headers, timeout: timeout ?? 0)
-            let fr = try self.network.filter(request: urlreq)
+            var urlreq = URLRequest.query(url,method: .post,params: params, headers: headers, timeout: timeout)
+            let fr = try self.client.filter(request: urlreq)
             switch fr{
             case .response(let resp):
                 return .init(resp)
@@ -72,15 +72,15 @@ class Session:NSObject{
     func upload(
         _ url:URL,
         form:FormData,
-        params:JSONParams?,
-        headers:Headers?,
+        params:URLParams?,
+        headers:HTTP.Headers?,
         timeout:TimeInterval? = nil,
         fileManager:FileManager = .default)->Response<Data>
     {
         do {
-            var urlreq = try URLEncoder.query.encode(url, method: .post, params: params, headers: headers, timeout: 0)
+            var urlreq = URLRequest.query(url,method: .post,params: params, headers: headers, timeout: timeout)
             urlreq.setHeader(form.contentType, for: .contentType)
-            let fr = try self.network.filter(request: urlreq)
+            let fr = try self.client.filter(request: urlreq)
             switch fr{
             case .response(let resp):
                 return .init(resp)
@@ -118,21 +118,17 @@ class Session:NSObject{
     }
     func download(
         _ url: URL,
-        params:JSONParams?,
-        headers:Headers?,
+        params:URLParams?,
+        headers:HTTP.Headers?,
         timeout:TimeInterval?,
         fileManager:FileManager = .default,
         transfer:FileTransfer? = nil)->Response<Data>
     {
-        do {
-            let urlreq = try URLEncoder.query.encode(url, method: .get, params: params, headers: headers, timeout: timeout ?? 0)
-            let task = self.session.downloadTask(with: urlreq)
-            let req = DownloadTask(task,session: self, transfer: transfer, fileManager: fileManager)
-            self.add(req)
-            return .init(req)
-        } catch  {
-            return .init(error)
-        }
+        let urlreq = URLRequest.query(url,method: .get,params: params, headers: headers, timeout: timeout)
+        let task = self.session.downloadTask(with: urlreq)
+        let req = DownloadTask(task,session: self, transfer: transfer, fileManager: fileManager)
+        self.add(req)
+        return .init(req)
     }
 }
 
@@ -162,7 +158,7 @@ extension Session:URLSessionTaskDelegate{
     }
     func urlSession(_ session: URLSession, task: URLSessionTask, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
         guard let task = self.$tasks[task.taskIdentifier],
-              let result = self.network?.challenge(challenge, for: task.task) else{
+              let result = self.client?.challenge(challenge, for: task.task) else{
             completionHandler(.performDefaultHandling,nil)
             return
         }

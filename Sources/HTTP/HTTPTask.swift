@@ -7,6 +7,24 @@
 
 import Foundation
 
+extension URLRequest{
+    public var method:HTTP.Method?{
+        guard let httpMethod else {
+            return nil
+        }
+        return .init(rawValue: httpMethod)
+    }
+    public mutating func setHeader(_ value:String,for field:HTTP.Headers.Field){
+        setValue(value, forHTTPHeaderField: field.rawValue)
+    }
+    public func header(for field:HTTP.Headers.Field)->String?{
+        value(forHTTPHeaderField: field.rawValue)
+    }
+    public func header(for field:String)->String?{
+        value(forHTTPHeaderField: field)
+    }
+}
+
 /// `Request` is the common superclass of all request types and provides common state  and callback handling.
 /// - Note provides progress interface for any request
 public class HTTPTask:@unchecked Sendable{
@@ -19,14 +37,14 @@ public class HTTPTask:@unchecked Sendable{
     init(
         _ task:URLSessionTask,
         session:Session,
-        retrier:Retrier?){
+        retrier:HTTP.Retrier?){
         self.promise = .init()
         self.task = task
         self.session = session
         self.retrier  = retrier
     }
     /// current retrier if present
-    public var retrier:Retrier?
+    public var retrier:HTTP.Retrier?
     /// the metrics of current task
     public var metrics:URLSessionTaskMetrics?
     /// the unique identifier of current request
@@ -47,10 +65,7 @@ public class HTTPTask:@unchecked Sendable{
     public var statusCode:Int?{  response?.statusCode  }
     /// the current http method
     public var method:HTTP.Method? {
-        guard let str = request?.httpMethod else {
-            return nil
-        }
-        return .init(rawValue: str)
+        request?.method
     }
     public func resume()  {
         task.resume()
@@ -111,7 +126,7 @@ public class HTTPTask:@unchecked Sendable{
             return nil
         }
         do {
-            let req = try await session.network.restart(request: request,error: error)
+            let req = try await session.client.restart(request: request,error: error)
             return (0,req)
         } catch  {
             self.error = error
@@ -130,7 +145,7 @@ public class HTTPTask:@unchecked Sendable{
         
     }
 }
-class UploadTask:HTTPTask,@unchecked Sendable{
+public class UploadTask:HTTPTask,@unchecked Sendable{
     private var fileManager:FileManager
     /// temp file when multipart/form-data
     var tempFile:URL?
@@ -148,17 +163,10 @@ class UploadTask:HTTPTask,@unchecked Sendable{
         }
     }
 }
-extension URLRequest{
-    public mutating func setHeader(_ value:String,for field:Headers.Field){
-        setValue(value, forHTTPHeaderField: field.rawValue)
-    }
-    public func header(for field:Headers.Field)->String?{
-        value(forHTTPHeaderField: field.rawValue)
-    }
-}
+
 public typealias FileTransfer = (_ tempURL:URL,_ response:HTTPURLResponse?) -> URL
 
-class DownloadTask:HTTPTask,@unchecked Sendable{
+public class DownloadTask:HTTPTask,@unchecked Sendable{
     /// temp file url transfer
     private var fileManager:FileManager
     private let transfer:FileTransfer
@@ -216,11 +224,11 @@ class DownloadTask:HTTPTask,@unchecked Sendable{
         }
     }
     /// cancel dirctly without resume data
-    override func cancel() {
+    override public func cancel() {
         self.cancel(resumer: nil)
     }
     /// cancel a donwload task and get the resume data
-    func cancel(resumer:((Data?)->Void)?){
+    public func cancel(resumer:((Data?)->Void)?){
         guard task.state != .completed else {
             return
         }

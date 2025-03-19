@@ -7,6 +7,12 @@
 
 import Foundation
 
+public protocol HTTPDelegate:AnyObject{
+    func client(_ client:HTTP.Client,couldUpdate session:URLSession)
+    func client(_ client:HTTP.Client,modifyResult result:Result<Data,Error>,request:URLRequest,response:HTTPURLResponse)->Result<Data,Error>
+    func client(_ client:HTTP.Client,fillterRequest request:URLRequest)->HTTP.FilterResult
+    func client(_ client:HTTP.Client,restartRequest request:URLRequest,error:Error)->URLRequest
+}
 extension HTTP{
     ///
     /// `HTTP Client` is network configure center.
@@ -16,17 +22,19 @@ extension HTTP{
         private let session:Session = Session()
         public init(baseURL:String) {
             self.baseURL = URL(string:baseURL);
-            session.network = self
+            session.client = self
         }
+        public weak var delegate:HTTPDelegate?
+        
         private var baseURL:URL?
         /// print debug log or not. override for custom
         open var debug:Bool{ false }
         /// global http method `.get` by default. override it in  options
-        open var method:HTTP.Method{.get}
+        open var method:Method{.get}
         /// global retryer  `nil` by default .override it in  options
         open var retrier:Retrier?{ nil }
         /// global http headers `[:]` by default, override it in  options
-        open var headers:[String:String]{ [:] }
+        open var headers:Headers{ .default }
         /// global timeout in secends `60` by default. override it in  options
         open var timeout:TimeInterval{ 60 }
         /// global default fileManager. override for custom
@@ -60,10 +68,12 @@ extension HTTP{
         ///
         /// - You can change the response by return new resultt
         /// - You can change the error by throws a new error.
+        /// - By default  hold the result
         ///
         /// - Throws: A new  Error to be response
         /// - Parameters:
         ///    - result: The original result
+        ///    - request: The original request
         ///    - response: The original http  response
         /// - Returns: A new result
         /// - Note: All download tasks do not require verification
@@ -74,11 +84,13 @@ extension HTTP{
         /// .responsse hook function
         ///
         /// - You can return a new request for restart
+        /// - You can change the error by throws a new error.
+        /// - By default  hold the result
         ///
         /// - Throws: A new  Error to be response
         /// - Parameters:
-        ///    - error: The original error
         ///    - request: The original request
+        ///    - error: The original error
         /// - Returns: A new `URLRequest` to be restart
         /// - Note: All download tasks do not require retry mechanism
         ///
@@ -108,7 +120,7 @@ extension HTTP.Client{
     ///
     @discardableResult
     public func request<R:Request>(_ req:R)->Response<R.Model>{
-        return self.request(req.path,params: req.params,options: req.options).then { _,data in
+        return self.request(req.path,params: req.params,options: req.options).then { data in
             try await req.convert(data)
         }
     }
@@ -130,33 +142,23 @@ extension HTTP.Client{
         let method = options?.method ?? self.method
         let timeout = options?.timeout ?? self.timeout
         let retrier = options?.retrier ?? self.retrier
-        var headers = Headers(self.headers)
+        var headers = self.headers
         if let h = options?.headers {
             headers.merge(h)
         }
-        do {
-            let urlreq = try HTTPEncoder.encode(url, method: method, params: params, headers: headers, timeout: timeout)
-            let resp = self.session.request(urlreq,retrier: retrier).map{
-                guard let request = $0?.request,let response = $0?.response else{
-                    return $1
-                }
-                return try await self.modify(result: $1,request: request, response: response)   
-            }
-            if debug{
-                resp.debugPrint()
-            }
-            return resp
-        } catch {
-            return .init(error)
+        let urlreq = URLRequest.create(url, method: method,params: params, headers: headers, timeout: timeout)
+        let resp = self.session.request(urlreq,retrier: retrier).map{
+            try await self.modify(result: $0,request: $1, response: $2)
         }
+        if debug{
+            resp.debugPrint()
+        }
+        return resp
     }
     @discardableResult
     public func request(_ request:URLRequest)->Response<Data>{
         let resp = self.session.request(request,retrier: retrier).map{
-            guard let request = $0?.request,let response = $0?.response else{
-                return $1
-            }
-            return try await self.modify(result: $1,request: request, response: response)
+            try await self.modify(result: $0,request: $1, response: $2)
         }
         if debug{
             resp.debugPrint()
@@ -174,11 +176,11 @@ extension HTTP.Client{
     public func upload<R:UploadRequest>(_ req:R)->Response<R.Model>{
         switch req.upload{
         case .file(let fileURL):
-            return self.upload(fileURL, to: req.url,params: req.params,headers: req.headers,timeout: req.timeout).then {_, data in
+            return self.upload(fileURL, to: req.url,params: req.params,headers: req.headers,timeout: req.timeout).then {data in
                 try await req.convert(data)
             }
         case .form(let data):
-            return self.upload(data, to: req.url,params: req.params,headers: req.headers,timeout: req.timeout).then {_, data in
+            return self.upload(data, to: req.url,params: req.params,headers: req.headers,timeout: req.timeout).then {data in
                 try await req.convert(data)
             }
         }
@@ -196,14 +198,14 @@ extension HTTP.Client{
     public func upload(
         _ file:URL,
         to url:String,
-        params:JSONParams?=nil,
+        params:URLParams?=nil,
         headers:[String:String]?=nil,
         timeout:TimeInterval? = nil)->Response<Data>
     {
         guard let url = URL(string:url) else {
             return .init(HTTP.Error.invalidURL(url:url))
         }
-        var h = Headers(self.headers)
+        var h = self.headers
         if let headers{
             h.merge(headers)
         }
@@ -217,10 +219,7 @@ extension HTTP.Client{
             headers: h,
             timeout: timeout,
             fileManager: fileManager).map{
-                guard let request = $0?.request,let response = $0?.response else{
-                    return $1
-                }
-                return try await self.modify(result: $1,request: request, response: response)
+                try await self.modify(result: $0,request: $1, response: $2)
             }
         if debug{
             resp.debugPrint()
@@ -241,14 +240,14 @@ extension HTTP.Client{
     public func upload(
         _ data:FormData,
         to url:String,
-        params:JSONParams?=nil,
+        params:URLParams?=nil,
         headers:[String:String]?=nil,
         timeout:TimeInterval? = nil)->Response<Data>
     {
         guard let url = URL(string:url) else {
             return .init(HTTP.Error.invalidURL(url:url))
         }
-        var h = Headers(self.headers)
+        var h = self.headers
         if let headers{
             h.merge(headers)
         }
@@ -259,10 +258,7 @@ extension HTTP.Client{
             headers: h,
             timeout: timeout,
             fileManager: fileManager).map{
-                guard let request = $0?.request,let response = $0?.response else{
-                    return $1
-                }
-                return try await self.modify(result: $1,request: request, response: response)
+                try await self.modify(result: $0,request: $1, response: $2)
             }
         if debug{
             resp.debugPrint()
@@ -285,7 +281,7 @@ extension HTTP.Client{
         let resp = self.session.download(
             url,
             params: req.params,
-            headers: Headers(req.headers),
+            headers: HTTP.Headers(req.headers),
             timeout: req.timeout,
             fileManager: fileManager,
             transfer:req.transfer)
@@ -308,12 +304,12 @@ extension HTTP.Client{
     @discardableResult
     public func download(
         _ url:String,
-        params:JSONParams?=nil,
+        params:URLParams?=nil,
         headers:[String:String]?=nil,
         timeout:TimeInterval? = nil,
         transfer: FileTransfer? = nil)->Response<Data>
     {
-        var aheaders = Headers(self.headers)
+        var aheaders = self.headers
         guard let url = URL(string:url) else {
             return .init(HTTP.Error.invalidURL(url:url))
         }
