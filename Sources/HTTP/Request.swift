@@ -9,14 +9,14 @@ import Foundation
 
 public protocol Request{
     associatedtype Model:Sendable
-    /// relative request url
-    var path: String{ get }
+    /// request url
+    var url: String{ get }
     /// request params
     var params: HTTPParams?{ get }
     /// request options
     var options: HTTP.Options?{ get }
     /// model convert method
-    func convert(_ data:Data)async throws ->Model
+    func decode(_ data:Data)async throws ->Model
 }
 public enum Upload{
     case file(fileURL:URL)
@@ -24,30 +24,24 @@ public enum Upload{
 }
 public protocol UploadRequest{
     associatedtype Model:Sendable
-    /// relative request url
+    /// request url
     var url: String{ get }
     /// request params
-    var params: URLParams?{ get }
-    /// uplload content
+    var params: HTTPParams?{ get }
+    /// request options
+    var options: HTTP.Options?{ get }
+    /// upload content
     var upload:Upload{ get }
-    /// http headers
-    var headers:[String:String]?{ get }
-    /// upload timeout
-    var timeout:TimeInterval?{ get }
     /// model convert method
-    func convert(_ data:Data)async throws ->Model
-    
+    func decode(_ data:Data)async throws ->Model
 }
 public protocol DownloadRequest{
     /// full download url
     var url: String{ get }
     /// url params coding
     var params: URLParams?{ get }
-    /// http headers
-    var headers: [String:String]?{ get }
-    /// download timeout
-    var timeout:TimeInterval?{ get }
+    /// download optiions 
+    var options: HTTP.Options?{ get }
     /// resolve download file location
     var transfer:FileTransfer?{ get }
-    
 }

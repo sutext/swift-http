@@ -89,8 +89,8 @@ public struct PlistParams:HTTPParams,ExpressibleByDictionaryLiteral,Sendable{
 /// `boolNumeric` can be used to configure how boolean values are encoded. The default behavior is to encode
 /// `true` as 1 and `false` as 0.
 ///
-public struct URLQuery{
-    private let values:[String:any JSONValue]
+public struct URLQuery:Sendable{
+    private let values:[String:Sendable&Codable]
     private let boolNumeric:Bool
     private let arrayBrackets:Bool
     /// Creates an instance using the specified parameters.
@@ -98,24 +98,18 @@ public struct URLQuery{
     /// - Parameters:
     ///   - arrayBracket: if `true` an empty set of square brackets is appended to the key for every value
     ///   - boolNumeric:  if `true` encode `true` as `1` and `false` as `0` otherwise encode `true` and `false` as string literals.
-    public init(_ values:[String:any JSONValue],arrayBrackets: Bool = true, boolNumeric: Bool = true) {
+    public init(_ values:[String:Sendable&Codable],arrayBrackets: Bool = true, boolNumeric: Bool = true) {
         self.values = values
         self.arrayBrackets = arrayBrackets
         self.boolNumeric = boolNumeric
     }
-    public var value:String?{ encode(values) }
-    /// Creates a percent-escaped, URL encoded query string from the given key-value pair.
-    ///
-    /// - Parameters:
-    ///   - params: the input key-value pairs
-    ///
-    /// - Returns: The percent-escaped, URL encoded query string.
-    private func encode(_ params: [String:Any]) -> String? {
-        if params.isEmpty{ return nil }
+    /// Get the percent-escaped, URL encoded query string from the given key-value paiirs.
+    public var value:String?{
+        if values.isEmpty{ return nil }
         var components: [(String, String)] = []
-        for key in params.keys.sorted(by: <) {
-            let value = params[key]!
-            components += encode(key, value: JSON(value))
+        for key in values.keys.sorted(by: <) {
+            let value = values[key]!
+            components += encode(key, value: value)
         }
         return components.map { "\($0)=\($1)" }.joined(separator: "&")
     }
@@ -126,29 +120,25 @@ public struct URLQuery{
     ///   - value: Value of the query component.
     ///
     /// - Returns: The percent-escaped, URL encoded query string components.
-    private func encode(_ key:String ,value:JSON) -> [(String, String)] {
+    private func encode(_ key:String ,value:Any) -> [(String, String)] {
         var components: [(String, String)] = []
         switch value {
-        case .null:
-            break
-        case .bool(let bool):
+        case let bool as Bool:
             components.append((escape(key), escape(encode(bool: bool))))
-        case .string(let string):
+        case let string as String:
             components.append((escape(key), escape("\(string)")))
-        case .number(let number):
-            if number.isBool {
-                components.append((escape(key), escape(encode(bool: number.boolValue))))
-            } else {
-                components.append((escape(key), escape("\(number)")))
-            }
-        case .object(let object):
+        case let number as NSNumber:
+            components.append((escape(key), escape("\(number)")))
+        case let object as [String:Any] :
             for (nestedKey, value) in object {
                 components += encode("\(key)[\(nestedKey)]", value: value)
             }
-        case .array(let array):
+        case let array as [Any]:
             for value in array {
                 components += encode(encode(array: key), value: value)
             }
+        default:
+            break
         }
         return components
     }
@@ -178,18 +168,18 @@ public struct URLQuery{
     }
 }
 extension URLRequest{
-    mutating func addQuery(_ query:String){
-        guard let url else{ return }
-        guard var urlComponents = URLComponents(url: url, resolvingAgainstBaseURL: true) else {
+    mutating func addQuery(_ query:URLQuery){
+        guard let url,let query = query.value else{ return }
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: true) else {
             return
         }
         if query.isEmpty { return }
-        if let percentEncodedQuery = urlComponents.percentEncodedQuery{
-            urlComponents.percentEncodedQuery = percentEncodedQuery + "&" + query
+        if let percentEncodedQuery = components.percentEncodedQuery{
+            components.percentEncodedQuery = percentEncodedQuery + "&" + query
         }else{
-            urlComponents.percentEncodedQuery = query
+            components.percentEncodedQuery = query
         }
-        if let url = urlComponents.url{
+        if let url = components.url{
             self.url = url
         }
     }
@@ -202,11 +192,11 @@ extension URLRequest{
         guard let params else{ return req  }
         switch method {
         case .get,.head,.delete,.connect:
-            if let query = params.query?.value{
+            if let query = params.query{
                 req.addQuery(query)
             }
         default:
-            if let query = params.bodyQuery?.value{
+            if let query = params.bodyQuery{
                 req.addQuery(query)
             }
             if let body = params.body{
@@ -222,7 +212,7 @@ extension URLRequest{
             req.allHTTPHeaderFields = headers.values
         }
         req.httpMethod = method.rawValue
-        if let query = params?.query?.value{
+        if let query = params?.query{
             req.addQuery(query)
         }
         return req

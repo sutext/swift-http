@@ -36,8 +36,6 @@ public enum HTTP{
 extension HTTP{
     public struct Headers :Sendable{
         public enum Field:String {
-            case host               = "Host"
-            case date               = "Date"
             case accept             = "Accept"
             case acceptCharset      = "Accept-Charset"
             case acceptLanguage     = "Accept-Language"

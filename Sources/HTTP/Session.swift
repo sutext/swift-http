@@ -17,21 +17,21 @@ class Session:NSObject{
         queue.maxConcurrentOperationCount = 6
         queue.underlyingQueue = rootQueue
         queue.qualityOfService = .default
+        client.delegate?.client(client, shouldUpdate: config)
         let session = URLSession(configuration: config,delegate: self,delegateQueue: queue)
-        client.update(session: session)
         return session
     }()
     weak var client:HTTP.Client!
     func request(_ req:URLRequest, retrier:HTTP.Retrier? = nil)->Response<Data>{
         var urlreq = req
         do {
-            let fr = try self.client.filter(request: urlreq)
+            let fr = try self.client.delegate?.client(client, fillterRequest: urlreq)
             switch fr{
             case .response(let resp):
                 return .init(resp)
             case .replace(let newreq):
                 urlreq = newreq
-            case .none:
+            default:
                 break
             }
         } catch {
@@ -45,20 +45,20 @@ class Session:NSObject{
     func upload(
         _ url:URL,
         file:URL,
-        params:URLParams?,
+        params:HTTPParams?,
         headers:HTTP.Headers?,
         timeout:TimeInterval? = nil,
         fileManager:FileManager = .default)->Response<Data>
     {
         do {
             var urlreq = URLRequest.query(url,method: .post,params: params, headers: headers, timeout: timeout)
-            let fr = try self.client.filter(request: urlreq)
+            let fr = try self.client.delegate?.client(client, fillterRequest: urlreq)
             switch fr{
             case .response(let resp):
                 return .init(resp)
             case .replace(let newreq):
                 urlreq = newreq
-            case .none:
+            default:
                 break
             }
             let task = self.session.uploadTask(with: urlreq, fromFile: file)
@@ -72,7 +72,7 @@ class Session:NSObject{
     func upload(
         _ url:URL,
         form:FormData,
-        params:URLParams?,
+        params:HTTPParams?,
         headers:HTTP.Headers?,
         timeout:TimeInterval? = nil,
         fileManager:FileManager = .default)->Response<Data>
@@ -80,13 +80,13 @@ class Session:NSObject{
         do {
             var urlreq = URLRequest.query(url,method: .post,params: params, headers: headers, timeout: timeout)
             urlreq.setHeader(form.contentType, for: .contentType)
-            let fr = try self.client.filter(request: urlreq)
+            let fr = try self.client.delegate?.client(client, fillterRequest: urlreq)
             switch fr{
             case .response(let resp):
                 return .init(resp)
             case .replace(let newreq):
                 urlreq = newreq
-            case .none:
+            default:
                 break
             }
             let upload = try form.toUpload()
@@ -118,10 +118,10 @@ class Session:NSObject{
     }
     func download(
         _ url: URL,
-        params:URLParams?,
+        params:HTTPParams?,
         headers:HTTP.Headers?,
         timeout:TimeInterval?,
-        fileManager:FileManager = .default,
+        fileManager:FileManager,
         transfer:FileTransfer? = nil)->Response<Data>
     {
         let urlreq = URLRequest.query(url,method: .get,params: params, headers: headers, timeout: timeout)
@@ -158,7 +158,7 @@ extension Session:URLSessionTaskDelegate{
     }
     func urlSession(_ session: URLSession, task: URLSessionTask, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
         guard let task = self.$tasks[task.taskIdentifier],
-              let result = self.client?.challenge(challenge, for: task.task) else{
+              let result = self.client.delegate?.client(self.client, task: task.task, didReceive: challenge) else{
             completionHandler(.performDefaultHandling,nil)
             return
         }

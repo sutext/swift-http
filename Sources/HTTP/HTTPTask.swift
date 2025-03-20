@@ -24,9 +24,6 @@ extension URLRequest{
         value(forHTTPHeaderField: field)
     }
 }
-
-/// `Request` is the common superclass of all request types and provides common state  and callback handling.
-/// - Note provides progress interface for any request
 public class HTTPTask:@unchecked Sendable{
     private let session:Session
     private(set) var task:URLSessionTask
@@ -76,8 +73,6 @@ public class HTTPTask:@unchecked Sendable{
     public func suspend()  {
         task.suspend()
     }
-    /// restart a task if completed.
-    ///
     func restart(req:URLRequest? = nil) {
         guard case .completed = state else{
             return
@@ -125,8 +120,12 @@ public class HTTPTask:@unchecked Sendable{
             self.done()
             return nil
         }
+        guard let delegate = self.session.client.delegate else{
+            self.done()
+            return nil
+        }
         do {
-            let req = try await session.client.restart(request: request,error: error)
+            let req = try await delegate.client(self.session.client, restartRequest: request, error: error)
             return (0,req)
         } catch  {
             self.error = error

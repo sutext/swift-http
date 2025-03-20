@@ -6,7 +6,7 @@
 //
 
 import Network
-
+import Foundation
 
 class Monitor{
     private static let StatusChanged:Notification.Name = .init("swifthttp.network.status.changed")
