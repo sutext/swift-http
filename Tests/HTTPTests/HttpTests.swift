@@ -2,60 +2,56 @@ import XCTest
 @testable import HTTP
 
 class Client:HTTP.Client,@unchecked Sendable{
+    override init() {
+        super.init()
+        self.baseURL = URL(string: "https://www.baidu.com")
+        self.debug = true
+        self.delegate = self
+    }
+}
+extension Client:HTTPDelegate{
+    func client(_ client: HTTP.Client, shouldUpdate config: URLSessionConfiguration) {
+        
+    }
     
+    func client(_ client: HTTP.Client, modifyResult result: Result<Data, any Error>, request: URLRequest, response: HTTPURLResponse) async throws -> Result<Data, any Error> {
+        result
+    }
+    
+    func client(_ client: HTTP.Client, fillterRequest request: URLRequest) throws -> HTTP.FilterResult {
+        .none
+    }
+    
+    func client(_ client: HTTP.Client, restartRequest request: URLRequest, error: any Error) async throws -> URLRequest {
+        throw error
+    }
+    
+    func client(_ client: HTTP.Client, task: URLSessionTask, didReceive challenge: HTTP.Challenge) -> HTTP.ChallengeResult {
+        .useDefault
+    }
 }
-let client = Client()
 
-struct BaseURL:RawRepresentable,ExpressibleByStringLiteral{
-    let rawValue:String
-    init(rawValue: String) {
-        self.rawValue = rawValue
-    }
-    init(stringLiteral value: String) {
-        self.rawValue = value
-    }
-    var url:URL?{ URL(string: rawValue) }
-    static let baidu:BaseURL = "https://www.baidu.com"
-}
-struct BaiduRequest:Request,ExpressibleByStringLiteral{
+let client = Client()
+struct JSONRequest:Request,ExpressibleByStringLiteral{
+    var params:JSON = [:]
+    var options: HTTP.Options? = .init(.get)
+    var url: String{ path }
+    var parameters:HTTPParams?{ params }
+    
     let path: String
     init(path: String) {
         self.path = path
     }
-    var url: URL {
-        URL(string: path,relativeTo: BaseURL.baidu.url)!
-    }
-    var params: HTTPParams?{ nil }
-    var options: HTTP.Options? { nil }
     func decode(_ data: Data) async throws -> String {
-        if let str = String(data: data, encoding: .utf8){
-            return str
-        }
-        throw HTTP.Error.invalidResponse(resp: nil)
+        String(data:data,encoding: .utf8) ?? ""
     }
-    init(stringLiteral value: String) {
-        self.path = value
+    init(stringLiteral value: StringLiteralType) {
+        self.init(path: value)
     }
 }
 final class HttpTests: XCTestCase {
-    func testExample() async throws {
-//        Client.addStatus(observer: self, selector: #selector(statusChanged))
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct
-        // results.
-        let url = URL(string: "https://www.baidu.com")
-        let url1 = URL(string: "/user/info")
-        print(url?.absoluteString)
-        print(url?.baseURL)
-        print(url?.host)
-        print(url?.path)
-        print(url?.scheme)
-        print(url1?.absoluteString)
-        print(url1?.baseURL)
-        print(url1?.host)
-        print(url1?.path)
-        print(url1?.scheme)
-        let req:BaiduRequest = "/"
+    func testGet() async throws {
+        let req:JSONRequest = "/"
         print(try await client.request(req).wait())
     }
     

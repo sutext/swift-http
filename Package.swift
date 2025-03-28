@@ -14,7 +14,7 @@ let package = Package(
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
-        .package(url: "https://github.com/sutext/swift-json", from: "2.2.1"),
+        .package(url: "https://github.com/sutext/swift-json", from: "2.3.0"),
         .package(url: "https://github.com/sutext/swift-promise", from: "2.0.2")
     ],
     targets: [

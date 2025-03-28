@@ -93,10 +93,10 @@ public struct Response<Value:Sendable>:Sendable{
             guard let task = self.task else{
                 return
             }
-            var body = ""
+            var body = "null"
             if let contentType = task.request?.header(for: .contentType) {
                 if contentType.contains("application/json") {
-                    body = JSON(parse: task.request?.httpBody).description
+                    body = JSON(task.request?.httpBody).description
                 }else if contentType.contains("form-data"){
                     body = "multipart/form-data"
                 }
@@ -104,10 +104,9 @@ public struct Response<Value:Sendable>:Sendable{
             print("""
             -----------------------DEUBG START--------------------------
             [\(task.method?.rawValue ?? "") URL]:  \(task.url ?? "None")
-            [Request Data]: \(body)
+            [Request Body]: \(body)
             [Request Headers]: \(JSON(task.request?.allHTTPHeaderFields))
-            [Request Duration]: \(task.duration ?? 0)s
-            [Response Data]: \(JSON(task.data))
+            [Response Duration]: \(task.duration ?? 0)s
             [Response Result]: \(result)
             [Response Status]: \(task.statusCode ?? 0)
             [Response Headers]: \(JSON(task.response?.allHeaderFields))

@@ -7,73 +7,77 @@
 
 import Foundation
 
+
 public protocol HTTPParams{
     /// http body data only exist in `post` `put` and so on
     /// Only one of the `query` and `body` will be encode into the request
-    var body:Data?{ get }
+    var body:HTTPBody?{ get }
     /// http query string only exist in `get` `delete` `head` `conect`.
     /// Only one of the `query` and `body` will be encode into the request
     var query:URLQuery? { get }
     /// http query string  exist in `post` `put` and so on.
     var bodyQuery:URLQuery? { get }
-    /// http content type only exist in `post` `put` and so on
-    var contentType:String { get }
 }
 extension HTTPParams{
     /// most time bodyQuery is nil
     public var bodyQuery:URLQuery? { nil }
 }
+
+extension JSON:HTTPParams{
+    public var body: HTTPBody?{
+        guard let data = compactData else{
+            return nil
+        }
+        return .json(data)
+    }
+    public var query: URLQuery?{
+        guard let object else{
+            return nil
+        }
+        return URLQuery(object)
+    }
+}
 public struct URLParams:HTTPParams,ExpressibleByDictionaryLiteral,Sendable{
-    private var values:[String: any JSONValue]
-    public init(values:[String: any JSONValue] = [:]) {
-        self.values = values
+    private var values:AnyValue
+    public var query: URLQuery? { values.query }
+    public var body: HTTPBody? {
+        guard let data = query?.value?.data(using: .utf8) else{
+            return nil
+        }
+        return .urlencoded(data)
     }
-    public init(dictionaryLiteral elements: (String,any JSONValue)...) {
-        self.values = elements.reduce(into: [:], { $0[$1.0] = $1.1 })
+    public init(_ value:AnyValue = [:]) {
+        self.values = value
     }
-    public var contentType: String { "application/x-www-form-urlencoded; charset=utf-8" }
-    public var body: Data? { query?.value?.data(using: .utf8)  }
-    public var query: URLQuery? { URLQuery(values) }
-    public subscript(key:String)->(any JSONValue)?{
+    public init(dictionaryLiteral elements: (String,AnyValue)... ){
+        self.values = .object(elements.reduce(into: [:], {
+            $0[$1.0] = $1.1
+        }))
+    }
+    public subscript(key:String)->AnyValue{
         get { values[key] }
-        set { values[key] = newValue}
+        set { values[key] = AnyValue(newValue)}
     }
 }
-
-public struct JSONParams:HTTPParams,ExpressibleByDictionaryLiteral,Sendable{
-    private var values:[String: any JSONValue]
-    public init(values:[String: any JSONValue] = [:]) {
-        self.values = values
+public struct HTTPBody{
+    public var data:Data
+    public var contentType:String
+    public static func xml(_ data:Data)->HTTPBody{
+        .init(data: data, contentType: "application/xml")
     }
-    public init(dictionaryLiteral elements: (String,any JSONValue)...) {
-        self.values = elements.reduce(into: [:], { $0[$1.0] = $1.1 })
+    public static func json(_ data:Data)->HTTPBody{
+        .init(data: data, contentType: "application/json")
     }
-    public var contentType: String { "application/json" }
-    public var body: Data? { try? JSONSerialization.data(withJSONObject: self)  }
-    public var query: URLQuery? { URLQuery(values) }
-    public subscript(key:String)->(any JSONValue)?{
-        get { values[key] }
-        set { values[key] = newValue}
+    public static func plist(_ data:Data)->HTTPBody{
+        .init(data: data, contentType: "application/plist")
     }
-}
-
-public struct PlistParams:HTTPParams,ExpressibleByDictionaryLiteral,Sendable{
-    private var values:[String: any JSONValue]
-    public init(values:[String: any JSONValue] = [:]) {
-        self.values = values
+    public static func protobuf(_ data:Data)->HTTPBody{
+        .init(data: data, contentType: "application/x-protobuf")
     }
-    public init(dictionaryLiteral elements: (String,any JSONValue)...) {
-        self.values = elements.reduce(into: [:], { $0[$1.0] = $1.1 })
-    }
-    public var contentType: String { "application/plist" }
-    public var body: Data? { try? PropertyListSerialization.data(fromPropertyList: values, format: .xml, options: .zero)  }
-    public var query: URLQuery? { URLQuery(values) }
-    public subscript(key:String)->(any JSONValue)?{
-        get { values[key] }
-        set { values[key] = newValue}
+    public static func urlencoded(_ data:Data)->HTTPBody{
+        .init(data: data, contentType: "application/x-www-form-urlencoded; charset=utf-8")
     }
 }
-
 /// Creates a url-encoded query string to be set as or appended to any existing URL query string or set as the HTTP
 /// body of the URL request. Whether the query string is set or appended to any existing URL query string or set as
 /// the HTTP body depends on the destination of the encoding.
@@ -90,19 +94,26 @@ public struct PlistParams:HTTPParams,ExpressibleByDictionaryLiteral,Sendable{
 /// `true` as 1 and `false` as 0.
 ///
 public struct URLQuery:Sendable{
-    private let values:[String:Sendable&Codable]
+    private let values:[String:AnyValue]
     private let boolNumeric:Bool
     private let arrayBrackets:Bool
     /// Creates an instance using the specified parameters.
     ///
     /// - Parameters:
+    ///   - values: key-vallue dictionary
     ///   - arrayBracket: if `true` an empty set of square brackets is appended to the key for every value
     ///   - boolNumeric:  if `true` encode `true` as `1` and `false` as `0` otherwise encode `true` and `false` as string literals.
-    public init(_ values:[String:Sendable&Codable],arrayBrackets: Bool = true, boolNumeric: Bool = true) {
+    public init(_ values:[String:AnyValue],arrayBrackets: Bool = true, boolNumeric: Bool = true) {
         self.values = values
         self.arrayBrackets = arrayBrackets
         self.boolNumeric = boolNumeric
     }
+    public init(_ values:[String:Any],arrayBrackets: Bool = true, boolNumeric: Bool = true) {
+        self.values = JSON(values).objectValue
+        self.arrayBrackets = arrayBrackets
+        self.boolNumeric = boolNumeric
+    }
+    
     /// Get the percent-escaped, URL encoded query string from the given key-value paiirs.
     public var value:String?{
         if values.isEmpty{ return nil }
@@ -111,30 +122,33 @@ public struct URLQuery:Sendable{
             let value = values[key]!
             components += encode(key, value: value)
         }
+        if components.isEmpty { return nil }
         return components.map { "\($0)=\($1)" }.joined(separator: "&")
     }
     /// Creates a percent-escaped, URL encoded query string components from the given key-value pair recursively.
     ///
-    /// - Parameters:
+    /// - Parameters
     ///   - key:   Key of the query component.
     ///   - value: Value of the query component.
     ///
     /// - Returns: The percent-escaped, URL encoded query string components.
-    private func encode(_ key:String ,value:Any) -> [(String, String)] {
+    private func encode(_ key:String ,value:JSON) -> [(String, String)] {
         var components: [(String, String)] = []
         switch value {
-        case let bool as Bool:
+        case .bool(let bool):
             components.append((escape(key), escape(encode(bool: bool))))
-        case let string as String:
+        case .string(let string):
             components.append((escape(key), escape("\(string)")))
-        case let number as NSNumber:
+        case .number(let number):
             components.append((escape(key), escape("\(number)")))
-        case let object as [String:Any] :
+        case .object(let object) :
             for (nestedKey, value) in object {
+                if case .null = value{ continue }
                 components += encode("\(key)[\(nestedKey)]", value: value)
             }
-        case let array as [Any]:
+        case .array(let array):
             for value in array {
+                if case .null = value{ continue }
                 components += encode(encode(array: key), value: value)
             }
         default:
@@ -200,8 +214,8 @@ extension URLRequest{
                 req.addQuery(query)
             }
             if let body = params.body{
-                req.setHeader(params.contentType, for: .contentType)
-                req.httpBody = body
+                req.setHeader(body.contentType, for: .contentType)
+                req.httpBody = body.data
             }
         }
         return req

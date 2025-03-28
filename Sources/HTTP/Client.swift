@@ -110,8 +110,8 @@ extension HTTP.Client{
     /// - Returns: `Response<Data>` A handler for task control and progress control
     ///
     @discardableResult
-    public func request<R:Request>(_ req:R)->Response<R.Model>{
-        return self.request(req.url,params: req.params,options: req.options).then { data in
+    public func request<R:Request>(_ req:R)->Response<R.Result>{
+        return self.request(req.url,params: req.parameters,options: req.options).then { data in
             try await req.decode(data)
         }
     }
@@ -154,14 +154,14 @@ extension HTTP.Client{
     /// - Returns: `Response<Data>` A handler for task control and progress control
     ///
     @discardableResult
-    public func upload<R:UploadRequest>(_ req:R)->Response<R.Model>{
+    public func upload<R:UploadRequest>(_ req:R)->Response<R.Result>{
         switch req.upload{
         case .file(let fileURL):
-            return self.upload(fileURL, to: req.url,params: req.params,options: req.options).then {data in
+            return self.upload(fileURL, to: req.url,params: req.parameters,options: req.options).then {data in
                 try await req.decode(data)
             }
         case .form(let data):
-            return self.upload(data, to: req.url,params: req.params,options: req.options).then {data in
+            return self.upload(data, to: req.url,params: req.parameters,options: req.options).then {data in
                 try await req.decode(data)
             }
         }
@@ -266,7 +266,7 @@ extension HTTP.Client{
         }
         let resp = self.session.download(
             url,
-            params: req.params,
+            params: req.parameters,
             headers: aheaders,
             timeout: req.options?.timeout ?? self.timeout,
             fileManager: fileManager,

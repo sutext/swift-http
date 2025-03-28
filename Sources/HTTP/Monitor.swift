@@ -8,11 +8,10 @@
 import Network
 import Foundation
 
-class Monitor{
-    private static let StatusChanged:Notification.Name = .init("swifthttp.network.status.changed")
+public class Network{
     private static let monitor:NWPathMonitor = NWPathMonitor()
     private static let notify:NotificationCenter = .init()
-    private static let queue:DispatchQueue = .init(label: "swifthttp.monitor.queue")
+    private static let queue:DispatchQueue = .init(label: "swift.http.monitor.queue")
     /// global network status
     public private(set) static var status:NWPath.Status = .unsatisfied{
         didSet{
@@ -20,30 +19,33 @@ class Monitor{
                 return
             }
             DispatchQueue.main.async {
-                notify.post(name: StatusChanged, object: self,userInfo: ["status":status])
+                notify.post(name: ObserverType.status.notifyName, object: self)
             }
         }
     }
-    public private(set) static var nwpath:NWPath = monitor.currentPath{
+    public private(set) static var path:NWPath = monitor.currentPath{
         didSet{
-            if nwpath == oldValue{
+            if path == oldValue{
                 return
             }
+            DispatchQueue.main.async {
+                notify.post(name: ObserverType.path.notifyName, object: self)
+            }
 #if os(iOS)
-            self.updateInterface(nwpath)
+            self.updateInterface(path)
 #endif
         }
     }
-    public class func addStatusObserver(_ observer:Any,selector:Selector){
-        self.notify.addObserver(observer, selector: selector, name: StatusChanged, object: nil)
+    public class func addObserver(_ observer:Any,for type:ObserverType,selector:Selector){
+        self.notify.addObserver(observer, selector: selector, name: type.notifyName, object: nil)
     }
-    public class func removeStatusObserver(_ observer:Any){
-        self.notify.removeObserver(observer, name: StatusChanged, object: nil)
+    public class func removeObserver(_ observer:Any,for type:ObserverType){
+        self.notify.removeObserver(observer, name: type.notifyName, object: nil)
     }
     public class func startMonitor() {
         if self.monitor.pathUpdateHandler == nil{
             self.monitor.pathUpdateHandler = {
-                self.nwpath = $0
+                self.path = $0
                 self.status = $0.status
             }
         }
@@ -61,32 +63,33 @@ class Monitor{
         return false
     }
     public static var isExpensive:Bool {
-        return self.nwpath.isExpensive
+        return self.path.isExpensive
     }
     @available(iOS 13.0,*)
     public static var isConstrained:Bool {
-        return self.nwpath.isConstrained
+        return self.path.isConstrained
     }
 }
-
+extension Network{
+    public enum ObserverType:String,CaseIterable{
+        case path = "swift.http.observer.path"
+        case status = "swift.http.observer.status"
+        case interface = "swift.http.observer.interface"
+        var notifyName:Notification.Name{ .init(rawValue: rawValue) }
+    }
+}
 #if os(iOS)
 import CoreTelephony
 import SystemConfiguration.CaptiveNetwork
-extension Monitor {
-    private static let InterfaceChanged: Notification.Name = .init("swifthttp.network.mode.changed")
+extension Network {
     // Property to hold the current network type
     public private(set) static var interface: Interface = .none {
         didSet {
+            if interface == oldValue { return }
             DispatchQueue.main.async {
-                notify.post(name: InterfaceChanged, object: self, userInfo: nil)
+                notify.post(name: ObserverType.interface.notifyName, object: self)
             }
         }
-    }
-    public class func addModeObserver(_ observer:Any,selector:Selector){
-        self.notify.addObserver(observer, selector: selector, name: InterfaceChanged, object: nil)
-    }
-    public class func removeModeObserver(_ observer:Any){
-        self.notify.removeObserver(observer, name: InterfaceChanged, object: nil)
     }
     // Method to update the current network interface
     private class func updateInterface(_ path:NWPath) {
@@ -148,9 +151,9 @@ extension Monitor {
     }
 }
 
-extension Monitor {
+extension Network {
     // Define network interface enumeration
-    public enum Interface : CustomStringConvertible{
+    public enum Interface : CustomStringConvertible,Hashable{
         case none
         case wifi(name:String)     // Wi-Fi connection
         case wired                  // Wired Ethernet
@@ -195,7 +198,7 @@ extension Monitor {
             }
         }
     }
-    public enum Generation:String{
+    public enum Generation:String,Hashable{
         case g2 = "2G"
         case g3 = "3G"
         case g4 = "4G"
