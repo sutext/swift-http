@@ -13,12 +13,11 @@ import Foundation
 public enum HTTP{
     ///HTTP request Errors
     public enum Error:Swift.Error{
-        case encode(Swift.Error)
-        case download(info:String)
         case invalidURL(url:String)
-        case invalidParams(info:String)
         case invalidStatus(code:Int)
         case invalidResponse(resp:URLResponse?)
+        case invalidResponseData
+        case invalidDownloadFile
     }
     ///HTTP request methods
     public enum Method:String{

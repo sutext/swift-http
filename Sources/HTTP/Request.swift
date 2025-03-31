@@ -30,8 +30,8 @@ public protocol UploadRequest{
     var options: HTTP.Options?{ get }
     /// upload content
     var upload:Upload{ get }
-    /// request params
-    var parameters: HTTPParams?{ get }
+    /// url query parameters
+    var parameters: URLParams?{ get }
     /// model convert method
     func decode(_ data:Data)async throws ->Result
 }
@@ -42,6 +42,6 @@ public protocol DownloadRequest{
     var options: HTTP.Options?{ get }
     /// resolve download file location
     var transfer:FileTransfer?{ get }
-    /// url params coding
+    /// url query parameters
     var parameters: URLParams?{ get }
 }

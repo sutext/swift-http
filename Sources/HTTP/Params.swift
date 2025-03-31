@@ -7,7 +7,6 @@
 
 import Foundation
 
-
 public protocol HTTPParams{
     /// http body data only exist in `post` `put` and so on
     /// Only one of the `query` and `body` will be encode into the request
@@ -23,6 +22,7 @@ extension HTTPParams{
     public var bodyQuery:URLQuery? { nil }
 }
 
+///`JSON` is also `JSONParams`
 extension JSON:HTTPParams{
     public var body: HTTPBody?{
         guard let data = compactData else{
@@ -37,14 +37,20 @@ extension JSON:HTTPParams{
         return URLQuery(object)
     }
 }
-public struct URLParams:HTTPParams,ExpressibleByDictionaryLiteral,Sendable{
+
+///Standardized Plist params encoding
+///
+public struct PlistParams:HTTPParams,ExpressibleByDictionaryLiteral,Sendable{
     private var values:AnyValue
+    /// query params encoding
     public var query: URLQuery? { values.query }
+    /// when application/plist
     public var body: HTTPBody? {
-        guard let data = query?.value?.data(using: .utf8) else{
+        guard let value = values.compactValue,
+              let data = try? PropertyListSerialization.data(fromPropertyList: value, format: .xml, options:.zero) else{
             return nil
         }
-        return .urlencoded(data)
+        return .plist(data)
     }
     public init(_ value:AnyValue = [:]) {
         self.values = value
@@ -59,9 +65,37 @@ public struct URLParams:HTTPParams,ExpressibleByDictionaryLiteral,Sendable{
         set { values[key] = AnyValue(newValue)}
     }
 }
+///Standardized URL encoding
+public struct URLParams:HTTPParams,ExpressibleByDictionaryLiteral,Sendable{
+    private var values:[String:AnyValue]
+    /// query params encoding
+    public var query: URLQuery? { URLQuery(values) }
+    /// when application/x-www-form-urlencoded
+    public var body: HTTPBody? {
+        guard let data = query?.encode()?.data(using: .utf8) else{
+            return nil
+        }
+        return .urlencoded(data)
+    }
+    public init(_ values:[String:Any]){
+        self.values = AnyValue(values).objectValue
+    }
+    public init(_ values:[String:AnyValue] = [:]) {
+        self.values = values
+    }
+    public init(dictionaryLiteral elements: (String,AnyValue)... ){
+        self.values = elements.reduce(into: [:], {
+            $0[$1.0] = $1.1
+        })
+    }
+    public subscript(key:String)->AnyValue?{
+        get { values[key] }
+        set { values[key] = AnyValue(newValue)}
+    }
+}
 public struct HTTPBody{
-    public var data:Data
-    public var contentType:String
+    public let data:Data
+    public let contentType:String
     public static func xml(_ data:Data)->HTTPBody{
         .init(data: data, contentType: "application/xml")
     }
@@ -109,13 +143,12 @@ public struct URLQuery:Sendable{
         self.boolNumeric = boolNumeric
     }
     public init(_ values:[String:Any],arrayBrackets: Bool = true, boolNumeric: Bool = true) {
-        self.values = JSON(values).objectValue
+        self.values = AnyValue(values).objectValue
         self.arrayBrackets = arrayBrackets
         self.boolNumeric = boolNumeric
     }
-    
     /// Get the percent-escaped, URL encoded query string from the given key-value paiirs.
-    public var value:String?{
+    public func encode()->String?{
         if values.isEmpty{ return nil }
         var components: [(String, String)] = []
         for key in values.keys.sorted(by: <) {
@@ -132,7 +165,7 @@ public struct URLQuery:Sendable{
     ///   - value: Value of the query component.
     ///
     /// - Returns: The percent-escaped, URL encoded query string components.
-    private func encode(_ key:String ,value:JSON) -> [(String, String)] {
+    private func encode(_ key:String ,value:AnyValue) -> [(String, String)] {
         var components: [(String, String)] = []
         switch value {
         case .bool(let bool):
@@ -183,7 +216,7 @@ public struct URLQuery:Sendable{
 }
 extension URLRequest{
     mutating func addQuery(_ query:URLQuery){
-        guard let url,let query = query.value else{ return }
+        guard let url,let query = query.encode() else{ return }
         guard var components = URLComponents(url: url, resolvingAgainstBaseURL: true) else {
             return
         }
@@ -220,7 +253,7 @@ extension URLRequest{
         }
         return req
     }
-    static func query(_ url:URL,method:HTTP.Method,params:HTTPParams?,headers:HTTP.Headers?,timeout:TimeInterval?)->URLRequest{
+    static func query(_ url:URL,method:HTTP.Method,params:URLParams?,headers:HTTP.Headers?,timeout:TimeInterval?)->URLRequest{
         var req = URLRequest(url:url , cachePolicy: .useProtocolCachePolicy, timeoutInterval: timeout ?? 0)
         if let headers{
             req.allHTTPHeaderFields = headers.values

@@ -10,15 +10,14 @@ import Foundation
 public protocol HTTPDelegate:AnyObject{
     /// Update the URLSessionConfiguration for network
     ///
-    /// - Parameters:
-    ///    - config:The internal default session config.
-    /// - Important: `override` this method to add your custom config
-    ///
     ///     func client(_ client:HTTP.Client,shouldUpdate config:URLSessionConfiguration) {
     ///         config.httpShouldUsePipelining = true
     ///         config.timeoutIntervalForRequest = 60
     ///         config.timeoutIntervalForResource = 7*24*3600
     ///     }
+    /// - Parameters:
+    ///    - config:The internal default session config.
+    ///    
     func client(_ client:HTTP.Client,shouldUpdate config:URLSessionConfiguration)
     ///  request hook function
     ///
@@ -70,6 +69,7 @@ public protocol HTTPDelegate:AnyObject{
     func client(_ client:HTTP.Client,task:URLSessionTask,didReceive challenge:HTTP.Challenge)->HTTP.ChallengeResult
 }
 extension HTTP{
+    
     ///
     /// `HTTP Client` is network configure center.
     ///  Usually you can inherit from `HTTP.Client` and override the configuration params .
@@ -83,18 +83,17 @@ extension HTTP{
         public weak var delegate:HTTPDelegate?
         /// print debug log or not. override for custom
         public var debug:Bool = false
-        /// global http method `.get` by default. override it in  options
+        /// global http method `.get` .  Override it in  options
         public var method:Method = .get
-        /// global retryer  `nil` by default .override it in  options
+        /// global retryer  `nil` . Override it in  options
         public var retrier:Retrier? = nil
-        /// global http headers `[:]` by default, override it in  options
+        /// global http headers `[:]`. Override it in  options
         public var headers:Headers = .default
-        /// global timeout in secends `60` by default. override it in  options
+        /// global timeout in secends `60`. Override it in  options
         public var timeout:TimeInterval = 60
-        /// global default fileManager. override for custom
+        /// global fileManager. override for custom
         public var fileManager:FileManager = .default
-        /// Cancel all the padding task
-        /// - Important： All download tasks are not canceled
+        /// Cancel all the pening tasks except the download task
         public func cancelAllTask(){
             session.cancelAllTask()
         }
@@ -125,7 +124,7 @@ extension HTTP.Client{
     /// - Returns: `Response<Data>` A handler for task control and progress control
     ///
     @discardableResult
-    private func request(_  url:String,params:HTTPParams?=nil,options:HTTP.Options?=nil)->Response<Data>{
+    public func request(_  url:String,params:HTTPParams?=nil,options:HTTP.Options?=nil)->Response<Data>{
         guard let url = URL(url, baseURL: options?.baseURL ?? self.baseURL) else{
             return .init(HTTP.Error.invalidURL(url: url))
         }
@@ -179,7 +178,7 @@ extension HTTP.Client{
     public func upload(
         _ file:URL,
         to url:String,
-        params:HTTPParams?=nil,
+        params:URLParams?=nil,
         options:HTTP.Options?=nil)->Response<Data>
     {
         guard let url = URL(url, baseURL:options?.baseURL ?? self.baseURL) else{
@@ -222,7 +221,7 @@ extension HTTP.Client{
     public func upload(
         _ data:FormData,
         to url:String,
-        params:HTTPParams?=nil,
+        params:URLParams?=nil,
         options:HTTP.Options?=nil)->Response<Data>
     {
         guard let url = URL(url, baseURL: options?.baseURL ?? self.baseURL) else{
@@ -256,7 +255,7 @@ extension HTTP.Client{
     /// - Returns: `Response<Data>` A handler for task control and progress control
     ///
     @discardableResult
-    public func download<R:DownloadRequest>(_ req:R)->Response<Data>{
+    public func download<R:DownloadRequest>(_ req:R)->Response<String>{
         guard let url = URL(req.url, baseURL: self.baseURL) else{
             return .init(HTTP.Error.invalidURL(url: req.url))
         }
@@ -283,16 +282,16 @@ extension HTTP.Client{
     ///    - params: The download request parameters
     ///    - headers: The download request headers
     ///    - transfer: The download file transfer
-    /// - Returns: `Response<Data>` A handler for task control and progress control
+    /// - Returns: `Response<String>` A handler for task control and progress control. Response.Value is location of downloaded file
     ///
     /// - Note: If `transfer` is not specified, The download file will not be deleted until the system purges the temporary files. And the temporary file will been returned.
     ///
     @discardableResult
     public func download(
         _ url:String,
-        params:HTTPParams?=nil,
+        params:URLParams?=nil,
         options:HTTP.Options?=nil,
-        transfer: FileTransfer? = nil)->Response<Data>
+        transfer: FileTransfer? = nil)->Response<String>
     {
         guard let url = URL(url, baseURL: options?.baseURL ?? self.baseURL) else{
             return .init(HTTP.Error.invalidURL(url: url))
@@ -319,13 +318,10 @@ extension HTTP.Client{
     ///    - data: The resume data from a previously cancelled download request
     ///    - transfer: A closure used to determine how and where the downloaded file should be moved.
     ///    - completion: The data request completion call back
-    /// - Returns: Thre request handler for task control and progress control
+    /// - Returns: `Response<String>` A handler for task control and progress control. Response.Value is location of downloaded file
     ///
     @discardableResult
-    public func download(
-        resume data:Data,
-        transfer:FileTransfer?=nil)->Response<Data>
-    {
+    public func download(resume data:Data,transfer:FileTransfer?=nil)->Response<String>{
         let resp = self.session.download(
             resume: data,
             fileManager: fileManager,

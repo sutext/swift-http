@@ -202,10 +202,11 @@ public class DownloadTask:HTTPTask,@unchecked Sendable{
             return await self.retry(when: error)
         }
         guard let location = self.fileURL?.absoluteString else {
-            let error = HTTP.Error.download(info:"invalid destination file url")
+            let error = HTTP.Error.invalidDownloadFile
             self.error = error
             return await retry(when: error)
         }
+        
         self.append(location.data(using: .utf8)!)
         self.done()
         return nil

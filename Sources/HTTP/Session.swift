@@ -45,7 +45,7 @@ class Session:NSObject{
     func upload(
         _ url:URL,
         file:URL,
-        params:HTTPParams?,
+        params:URLParams?,
         headers:HTTP.Headers?,
         timeout:TimeInterval? = nil,
         fileManager:FileManager = .default)->Response<Data>
@@ -72,7 +72,7 @@ class Session:NSObject{
     func upload(
         _ url:URL,
         form:FormData,
-        params:HTTPParams?,
+        params:URLParams?,
         headers:HTTP.Headers?,
         timeout:TimeInterval? = nil,
         fileManager:FileManager = .default)->Response<Data>
@@ -109,26 +109,36 @@ class Session:NSObject{
     func download(
         resume data: Data,
         fileManager:FileManager = .default,
-        transfer:FileTransfer? = nil)->Response<Data>
+        transfer:FileTransfer? = nil)->Response<String>
     {
         let task = self.session.downloadTask(withResumeData: data)
         let req = DownloadTask(task,session: self, transfer: transfer, fileManager: fileManager)
         self.add(req)
-        return .init(req)
+        return Response(req).then { data in
+            guard let location = String(data:data,encoding: .utf8) else{
+                throw HTTP.Error.invalidDownloadFile
+            }
+            return location
+        }
     }
     func download(
         _ url: URL,
-        params:HTTPParams?,
+        params:URLParams?,
         headers:HTTP.Headers?,
         timeout:TimeInterval?,
         fileManager:FileManager,
-        transfer:FileTransfer? = nil)->Response<Data>
+        transfer:FileTransfer? = nil)->Response<String>
     {
         let urlreq = URLRequest.query(url,method: .get,params: params, headers: headers, timeout: timeout)
         let task = self.session.downloadTask(with: urlreq)
         let req = DownloadTask(task,session: self, transfer: transfer, fileManager: fileManager)
         self.add(req)
-        return .init(req)
+        return Response(req).then { data in
+            guard let location = String(data:data,encoding: .utf8) else{
+                throw HTTP.Error.invalidDownloadFile
+            }
+            return location
+        }
     }
 }
 
