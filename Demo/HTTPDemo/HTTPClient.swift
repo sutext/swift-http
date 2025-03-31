@@ -1,32 +1,32 @@
-import XCTest
-@testable import HTTP
+//
+//  HTTPClient.swift
+//  HTTPDemo
+//
+//  Created by supertext on 2025/3/31.
+//
 
-class Client:HTTP.Client,@unchecked Sendable{
+import HTTP
+import Foundation
+
+let net = Client()
+class Client:HTTP.Client, HTTPDelegate,@unchecked Sendable{
     override init() {
         super.init()
         self.debug = true
         self.delegate = self
     }
-}
-extension Client:HTTPDelegate{
-    func client(_ client: HTTP.Client, shouldUpdate config: URLSessionConfiguration) {
-        
-    }
-    
-    func client(_ client: HTTP.Client, modifyResult result: Result<Data, any Error>, request: URLRequest, response: HTTPURLResponse) async throws -> Result<Data, any Error> {
-        result
-    }
-    
     func client(_ client: HTTP.Client, fillterRequest request: URLRequest) throws -> HTTP.FilterResult {
-        .none
-    }
-    
-    func client(_ client: HTTP.Client, restartRequest request: URLRequest, error: any Error) async throws -> URLRequest {
-        throw error
-    }
-    
-    func client(_ client: HTTP.Client, task: URLSessionTask, didReceive challenge: HTTP.Challenge) -> HTTP.ChallengeResult {
-        .useDefault
+        guard let str = request.url?.absoluteString else{
+            throw HTTP.Error.invalidURL(url: "")
+        }
+        guard str.hasPrefix("http") else{
+            throw HTTP.Error.invalidURL(url: str)
+        }
+        return .none
+//        var result = JSON([:])
+//        result.code = "ok"
+//        result.message = "test directly return"
+//        return .response(.success(result.rawData!))
     }
 }
 
@@ -68,6 +68,12 @@ struct ModelRequest<M:Model>:Request,ExpressibleByStringLiteral{
         self.init(path: value)
     }
 }
+struct ConfigRequest:Request{
+    var url: String{ "https://accounts.google.com/.well-known/openid-configuration" }
+    func decode(_ data: Data) async throws -> GoogleOidcConfig {
+        try GoogleOidcConfig(JSON.parse(data))
+    }
+}
 struct GoogleOidcConfig:Model{
     var issuer:String?
     var jwks_uri:String?
@@ -103,16 +109,5 @@ struct GoogleOidcConfig:Model{
         code_challenge_methods_supported = json.code_challenge_methods_supported.compactMap{ $1.string }
         token_endpoint_auth_methods_supported = json.token_endpoint_auth_methods_supported.compactMap{ $1.string }
         id_token_signing_alg_values_supported = json.id_token_signing_alg_values_supported.compactMap{ $1.string }
-    }
-}
-final class HttpTests: XCTestCase {
-    let client = Client()
-    func testGet() async throws {
-        var req:ModelRequest<GoogleOidcConfig> = "https://accounts.google.com/.well-known/openid-configuration"
-        req.params.username = "hello"
-        req.params.password = "xxxxx"
-        req.options?.method = .get
-        let config = try await client.request(req).wait()
-        XCTAssertNotNil(config.issuer)
     }
 }

@@ -18,6 +18,10 @@ public protocol Request{
     /// model convert method
     func decode(_ data:Data)async throws ->Result
 }
+public extension Request{
+    var options:HTTP.Options? { nil  }
+    var parameters:HTTPParams? { nil  }
+}
 public enum Upload{
     case file(fileURL:URL)
     case form(data:FormData)
@@ -35,6 +39,10 @@ public protocol UploadRequest{
     /// model convert method
     func decode(_ data:Data)async throws ->Result
 }
+public extension UploadRequest{
+    var options:HTTP.Options? { nil  }
+    var parameters:HTTPParams? { nil  }
+}
 public protocol DownloadRequest{
     /// full download url
     var url: String{ get }
@@ -44,4 +52,9 @@ public protocol DownloadRequest{
     var transfer:FileTransfer?{ get }
     /// url query parameters
     var parameters: URLParams?{ get }
+}
+public extension DownloadRequest{
+    var options:HTTP.Options? { nil  }
+    var transfer:FileTransfer?{ nil }
+    var parameters:HTTPParams? { nil  }
 }

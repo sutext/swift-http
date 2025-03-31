@@ -68,6 +68,25 @@ public protocol HTTPDelegate:AnyObject{
     /// - Returns `ChallengeResult` for `urlSession:task:didReceive`
     func client(_ client:HTTP.Client,task:URLSessionTask,didReceive challenge:HTTP.Challenge)->HTTP.ChallengeResult
 }
+/// Default `HTTPDelegate`  behavior
+public extension HTTPDelegate{
+    func client(_ client: HTTP.Client, shouldUpdate config: URLSessionConfiguration) {
+        
+    }
+    func client(_ client: HTTP.Client, modifyResult result: Result<Data, any Error>, request: URLRequest, response: HTTPURLResponse) async throws -> Result<Data, any Error> {
+        result
+    }
+    func client(_ client: HTTP.Client, fillterRequest request: URLRequest) throws -> HTTP.FilterResult {
+        .none
+    }
+    func client(_ client: HTTP.Client, restartRequest request: URLRequest, error: any Error) async throws -> URLRequest {
+        throw error
+    }
+    func client(_ client: HTTP.Client, task: URLSessionTask, didReceive challenge: HTTP.Challenge) -> HTTP.ChallengeResult {
+        .useDefault
+    }
+}
+
 extension HTTP{
     
     ///
