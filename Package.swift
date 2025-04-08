@@ -4,7 +4,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "HTTP",
+    name: "swift-http",
     platforms: [.iOS(.v13),.watchOS(.v6),.macOS(.v10_15),.tvOS(.v13)],
     products: [
         // Products define the executables and libraries a package produces, and make them visible to other packages.
@@ -14,7 +14,7 @@ let package = Package(
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
-        .package(url: "https://github.com/sutext/swift-json", from: "2.3.0"),
+        .package(url: "https://github.com/sutext/swift-json", from: "2.3.1"),
         .package(url: "https://github.com/sutext/swift-promise", from: "2.0.2")
     ],
     targets: [

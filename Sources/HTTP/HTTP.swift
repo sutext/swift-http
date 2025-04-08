@@ -130,3 +130,51 @@ extension RandomAccessCollection where Element == String {
         }.joined(separator: ", ")
     }
 }
+extension HTTP{
+    /// Request verrify result
+    public enum FilterResult{
+        /// Do not do anything
+        case none
+        /// replace original request
+        case replace(URLRequest)
+        /// return a response directly
+        case response(Result<Data,Swift.Error>)
+    }
+    public struct Options{
+        ///overwrite the global baseURL
+        public var baseURL:URL?
+        /// overwrite the global method settings
+        public var method:Method?
+        /// merge into global headers
+        public var headers:[String:String]?
+        /// overwrite global timeout settings
+        public var timeout:TimeInterval?
+        /// overwrite the global retrier settings
+        public var retrier:Retrier?
+        public init(
+            _ method:Method?=nil,
+            baseURL:URL?=nil,
+            headers:[String:String]?=nil,
+            timeout:TimeInterval?=nil,
+            retrier:Retrier?=nil)
+        {
+            self.baseURL = baseURL
+            self.method = method
+            self.retrier = retrier
+            self.headers = headers
+            self.timeout = timeout
+        }
+        public static func get(base:String? = nil,headers:[String:String]?=nil,timeout:TimeInterval? = nil,retrier:Retrier?=nil)->Options{
+            .init(.get,baseURL: base==nil ? nil : URL(string: base!),headers: headers,timeout: timeout,retrier: retrier)
+        }
+        public static func put(base:String? = nil,headers:[String:String]?=nil,timeout:TimeInterval? = nil,retrier:Retrier?=nil)->Options{
+            .init(.put,baseURL: base==nil ? nil : URL(string: base!),headers: headers,timeout: timeout,retrier: retrier)
+        }
+        public static func post(base:String? = nil,headers:[String:String]?=nil,timeout:TimeInterval? = nil,retrier:Retrier?=nil)->Options{
+            .init(.post,baseURL: base==nil ? nil : URL(string: base!),headers: headers,timeout: timeout,retrier: retrier)
+        }
+        public static func delete(base:String? = nil,headers:[String:String]?=nil,timeout:TimeInterval? = nil,retrier:Retrier?=nil)->Options{
+            .init(.delete,baseURL: base==nil ? nil : URL(string: base!),headers: headers,timeout: timeout,retrier: retrier)
+        }
+    }
+}

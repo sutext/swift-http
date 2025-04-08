@@ -26,8 +26,19 @@ struct ContentView: View {
                         print(err)
                     }
                 }
+                Button("PB Login") {
+                    let req = LoginRequest(username: "jack", password: "pwd")
+                    net.request(req).then { config in
+                        await processToken(config)
+                    }.catch { err in
+                        print(err)
+                    }
+                }
             }
         }
+    }
+    func processToken(_ info:LoginInfo){
+        print(info)
     }
     func processConfig(_ config:GoogleOidcConfig){
         print(config)

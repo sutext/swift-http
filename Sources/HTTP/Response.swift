@@ -93,18 +93,10 @@ public struct Response<Value:Sendable>:Sendable{
             guard let task = self.task else{
                 return
             }
-            var body = "null"
-            if let contentType = task.request?.header(for: .contentType) {
-                if contentType.contains("application/json") {
-                    body = JSON(task.request?.httpBody).description
-                }else if contentType.contains("form-data"){
-                    body = "multipart/form-data"
-                }
-            }
             Swift.print("""
             -----------------------DEUBG START--------------------------
             [\(task.method?.rawValue ?? "") URL]:  \(task.url ?? "None")
-            [Request Body]: \(body)
+            [Request Body]: \(task.bodyDesc)
             [Request Headers]: \(JSON(task.request?.allHTTPHeaderFields))
             [Response Duration]: \(task.duration ?? 0)s
             [Response Result]: \(result)
@@ -112,6 +104,23 @@ public struct Response<Value:Sendable>:Sendable{
             [Response Headers]: \(JSON(task.response?.allHeaderFields))
             -----------------------DEUBG   END--------------------------
             """)
+        }
+    }
+}
+extension HTTPTask{
+    var bodyDesc:String{
+        guard let data = request?.httpBody else{
+            return "null"
+        }
+        guard let contentType = request?.header(for: .contentType) else{
+            return "\(data)"
+        }
+        if contentType.contains("application/json") {
+            return JSON(parse: data).description
+        }else if contentType.contains("application/x-www-form-urlencoded"){
+            return String(data:data,encoding: .utf8) ?? "null"
+        }else{
+            return "\(data)"
         }
     }
 }

@@ -69,6 +69,8 @@ struct ModelRequest<M:Model>:Request,ExpressibleByStringLiteral{
     }
 }
 struct ConfigRequest:Request{
+    var options: HTTP.Options?{ .get() }
+    var parameters: (any HTTPParams)? { nil }
     var url: String{ "https://accounts.google.com/.well-known/openid-configuration" }
     func decode(_ data: Data) async throws -> GoogleOidcConfig {
         try GoogleOidcConfig(JSON.parse(data))

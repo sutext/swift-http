@@ -8,13 +8,13 @@
 import Foundation
 
 public protocol HTTPParams{
-    /// http body data only exist in `post` `put` and so on
+    /// http body data. Only exist in `post` `put` and so on
     /// Only one of the `query` and `body` will be encode into the request
     var body:HTTPBody?{ get }
-    /// http query string only exist in `get` `delete` `head` `conect`.
+    /// http query string .Only exist in `get` `delete` `head` `conect`.
     /// Only one of the `query` and `body` will be encode into the request
     var query:URLQuery? { get }
-    /// http query string  exist in `post` `put` and so on.
+    /// query string  when `body` exist
     var bodyQuery:URLQuery? { get }
 }
 extension HTTPParams{
@@ -22,8 +22,9 @@ extension HTTPParams{
     public var bodyQuery:URLQuery? { nil }
 }
 
-///`JSON` is also `JSONParams`
-extension JSON:HTTPParams{
+///Use  application/json body
+public typealias JSONParams = JSON
+extension JSONParams:HTTPParams{
     public var body: HTTPBody?{
         guard let data = compactData else{
             return nil
@@ -38,9 +39,21 @@ extension JSON:HTTPParams{
     }
 }
 
+///`URLQuery` is also an `HTTPParams`. Use application/x-www-form-urlencoded body
+public typealias URLParams = URLQuery
+extension URLParams:HTTPParams{
+    public var body: HTTPBody? {
+        guard let data = encode()?.data(using: .utf8) else{
+            return nil
+        }
+        return .urlencoded(data)
+    }
+    public var query: URLQuery?{ self }
+}
+
 ///Standardized Plist params encoding
 ///
-public struct PlistParams:HTTPParams,ExpressibleByDictionaryLiteral,Sendable{
+public struct PlistParams:HTTPParams,Sendable{
     private var values:AnyValue
     /// query params encoding
     public var query: URLQuery? { values.query }
@@ -55,42 +68,19 @@ public struct PlistParams:HTTPParams,ExpressibleByDictionaryLiteral,Sendable{
     public init(_ value:AnyValue = [:]) {
         self.values = value
     }
-    public init(dictionaryLiteral elements: (String,AnyValue)... ){
-        self.values = .object(elements.reduce(into: [:], {
-            $0[$1.0] = $1.1
-        }))
-    }
-    public subscript(key:String)->AnyValue{
+    public subscript(key:any JSONKey)->AnyValue{
         get { values[key] }
-        set { values[key] = AnyValue(newValue)}
+        set { values[key] = newValue}
     }
 }
-///Standardized URL encoding
-public struct URLParams:HTTPParams,ExpressibleByDictionaryLiteral,Sendable{
-    private var values:[String:AnyValue]
-    /// query params encoding
-    public var query: URLQuery? { URLQuery(values) }
-    /// when application/x-www-form-urlencoded
-    public var body: HTTPBody? {
-        guard let data = query?.encode()?.data(using: .utf8) else{
-            return nil
-        }
-        return .urlencoded(data)
+extension PlistParams:ExpressibleByArrayLiteral,ExpressibleByDictionaryLiteral{
+    public init(arrayLiteral elements: Any?...) {
+        self.values = .array(elements.map{ AnyValue($0) })
     }
-    public init(_ values:[String:Any]){
-        self.values = AnyValue(values).objectValue
-    }
-    public init(_ values:[String:AnyValue] = [:]) {
-        self.values = values
-    }
-    public init(dictionaryLiteral elements: (String,AnyValue)... ){
-        self.values = elements.reduce(into: [:], {
-            $0[$1.0] = $1.1
-        })
-    }
-    public subscript(key:String)->AnyValue?{
-        get { values[key] }
-        set { values[key] = AnyValue(newValue)}
+    public init(dictionaryLiteral elements: (String,Any?)... ){
+        self.values = .object(elements.reduce(into: [:], {
+            $0[$1.0] = AnyValue($1.1)
+        }))
     }
 }
 public struct HTTPBody{
@@ -112,108 +102,8 @@ public struct HTTPBody{
         .init(data: data, contentType: "application/x-www-form-urlencoded; charset=utf-8")
     }
 }
-/// Creates a url-encoded query string to be set as or appended to any existing URL query string or set as the HTTP
-/// body of the URL request. Whether the query string is set or appended to any existing URL query string or set as
-/// the HTTP body depends on the destination of the encoding.
-///
-/// The `Content-Type` HTTP header field of an encoded request with HTTP body is set to
-/// `application/x-www-form-urlencoded; charset=utf-8`.
-///
-/// There is no published specification for how to encode collection types. By default the convention of appending
-/// `[]` to the key for array values (`foo[]=1&foo[]=2`), and appending the key surrounded by square brackets for
-/// nested dictionary values (`foo[bar]=baz`) is used. Optionally, `arrayBracket` can be used to omit the
-/// square brackets appended to array keys.
-///
-/// `boolNumeric` can be used to configure how boolean values are encoded. The default behavior is to encode
-/// `true` as 1 and `false` as 0.
-///
-public struct URLQuery:Sendable{
-    private let values:[String:AnyValue]
-    private let boolNumeric:Bool
-    private let arrayBrackets:Bool
-    /// Creates an instance using the specified parameters.
-    ///
-    /// - Parameters:
-    ///   - values: key-vallue dictionary
-    ///   - arrayBracket: if `true` an empty set of square brackets is appended to the key for every value
-    ///   - boolNumeric:  if `true` encode `true` as `1` and `false` as `0` otherwise encode `true` and `false` as string literals.
-    public init(_ values:[String:AnyValue],arrayBrackets: Bool = true, boolNumeric: Bool = true) {
-        self.values = values
-        self.arrayBrackets = arrayBrackets
-        self.boolNumeric = boolNumeric
-    }
-    public init(_ values:[String:Any],arrayBrackets: Bool = true, boolNumeric: Bool = true) {
-        self.values = AnyValue(values).objectValue
-        self.arrayBrackets = arrayBrackets
-        self.boolNumeric = boolNumeric
-    }
-    /// Get the percent-escaped, URL encoded query string from the given key-value paiirs.
-    public func encode()->String?{
-        if values.isEmpty{ return nil }
-        var components: [(String, String)] = []
-        for key in values.keys.sorted(by: <) {
-            let value = values[key]!
-            components += encode(key, value: value)
-        }
-        if components.isEmpty { return nil }
-        return components.map { "\($0)=\($1)" }.joined(separator: "&")
-    }
-    /// Creates a percent-escaped, URL encoded query string components from the given key-value pair recursively.
-    ///
-    /// - Parameters
-    ///   - key:   Key of the query component.
-    ///   - value: Value of the query component.
-    ///
-    /// - Returns: The percent-escaped, URL encoded query string components.
-    private func encode(_ key:String ,value:AnyValue) -> [(String, String)] {
-        var components: [(String, String)] = []
-        switch value {
-        case .bool(let bool):
-            components.append((escape(key), escape(encode(bool: bool))))
-        case .string(let string):
-            components.append((escape(key), escape("\(string)")))
-        case .number(let number):
-            components.append((escape(key), escape("\(number)")))
-        case .object(let object) :
-            for (nestedKey, value) in object {
-                if case .null = value{ continue }
-                components += encode("\(key)[\(nestedKey)]", value: value)
-            }
-        case .array(let array):
-            for value in array {
-                if case .null = value{ continue }
-                components += encode(encode(array: key), value: value)
-            }
-        default:
-            break
-        }
-        return components
-    }
-    private func encode(array key:String)->String{
-        if arrayBrackets{
-            return "\(key)[]"
-        }
-        return key
-    }
-    private func encode(bool value:Bool)->String{
-        if boolNumeric{
-            return value ? "1" : "0"
-        }
-        return value ? "true" : "false"
-    }
-    /// Creates a percent-escaped string following RFC 3986 for a query string key or value.
-    ///
-    /// - Parameter string: `String` to be percent-escaped.
-    ///
-    /// - Returns:          The percent-escaped `String`.
-    private func escape(_ string: String) -> String {
-        let generalDelimitersToEncode = ":#[]@" // does not include "?" or "/" due to RFC 3986 - Section 3.4
-        let subDelimitersToEncode = "!$&'()*+,;="
-        let encodableDelimiters = CharacterSet(charactersIn: "\(generalDelimitersToEncode)\(subDelimitersToEncode)")
-        let set = CharacterSet.urlQueryAllowed.subtracting(encodableDelimiters)
-        return string.addingPercentEncoding(withAllowedCharacters: set) ?? string
-    }
-}
+
+
 extension URLRequest{
     mutating func addQuery(_ query:URLQuery){
         guard let url,let query = query.encode() else{ return }
@@ -253,13 +143,13 @@ extension URLRequest{
         }
         return req
     }
-    static func query(_ url:URL,method:HTTP.Method,params:URLParams?,headers:HTTP.Headers?,timeout:TimeInterval?)->URLRequest{
+    static func query(_ url:URL,method:HTTP.Method,query:URLQuery?,headers:HTTP.Headers?,timeout:TimeInterval?)->URLRequest{
         var req = URLRequest(url:url , cachePolicy: .useProtocolCachePolicy, timeoutInterval: timeout ?? 0)
         if let headers{
             req.allHTTPHeaderFields = headers.values
         }
         req.httpMethod = method.rawValue
-        if let query = params?.query{
+        if let query {
             req.addQuery(query)
         }
         return req

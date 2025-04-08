@@ -12,19 +12,6 @@ extension Client:HTTPDelegate{
     func client(_ client: HTTP.Client, shouldUpdate config: URLSessionConfiguration) {
         
     }
-    
-    func client(_ client: HTTP.Client, modifyResult result: Result<Data, any Error>, request: URLRequest, response: HTTPURLResponse) async throws -> Result<Data, any Error> {
-        result
-    }
-    
-    func client(_ client: HTTP.Client, fillterRequest request: URLRequest) throws -> HTTP.FilterResult {
-        .none
-    }
-    
-    func client(_ client: HTTP.Client, restartRequest request: URLRequest, error: any Error) async throws -> URLRequest {
-        throw error
-    }
-    
     func client(_ client: HTTP.Client, task: URLSessionTask, didReceive challenge: HTTP.Challenge) -> HTTP.ChallengeResult {
         .useDefault
     }
@@ -113,6 +100,20 @@ final class HttpTests: XCTestCase {
         req.params.password = "xxxxx"
         req.options?.method = .get
         let config = try await client.request(req).wait()
+        XCTAssertNotNil(config.issuer)
+    }
+    func testGet1() async throws {
+        let url = "https://accounts.google.com/.well-known/openid-configuration"
+        let data = try await client.request(url,options: .get()).wait()
+        let json = try JSON.parse(data)
+        let config = try GoogleOidcConfig(json)
+        XCTAssertNotNil(config.issuer)
+    }
+    func testGet2() async throws {
+        let base = "https://accounts.google.com/"
+        let data = try await client.request("/.well-known/openid-configuration",options: .get(base: base)).wait()
+        let json = try JSON.parse(data)
+        let config = try GoogleOidcConfig(json)
         XCTAssertNotNil(config.issuer)
     }
 }

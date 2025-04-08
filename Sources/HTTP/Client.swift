@@ -47,7 +47,7 @@ public protocol HTTPDelegate:AnyObject{
     /// - Returns: A new result
     /// - Note: All download tasks do not require verification
     ///
-    func client(_ client:HTTP.Client,fillterRequest request:URLRequest)throws->HTTP.FilterResult
+    func client(_ client:HTTP.Client,filterRequest request:URLRequest)throws->HTTP.FilterResult
     /// .responsse hook function
     ///
     /// - You can return a new request for restart
@@ -76,7 +76,7 @@ public extension HTTPDelegate{
     func client(_ client: HTTP.Client, modifyResult result: Result<Data, any Error>, request: URLRequest, response: HTTPURLResponse) async throws -> Result<Data, any Error> {
         result
     }
-    func client(_ client: HTTP.Client, fillterRequest request: URLRequest) throws -> HTTP.FilterResult {
+    func client(_ client: HTTP.Client, filterRequest request: URLRequest) throws -> HTTP.FilterResult {
         .none
     }
     func client(_ client: HTTP.Client, restartRequest request: URLRequest, error: any Error) async throws -> URLRequest {
@@ -175,11 +175,11 @@ extension HTTP.Client{
     public func upload<R:UploadRequest>(_ req:R)->Response<R.Result>{
         switch req.upload{
         case .file(let fileURL):
-            return self.upload(fileURL, to: req.url,params: req.parameters,options: req.options).then {data in
+            return self.upload(fileURL, to: req.url,query: req.query,options: req.options).then {data in
                 try await req.decode(data)
             }
         case .form(let data):
-            return self.upload(data, to: req.url,params: req.parameters,options: req.options).then {data in
+            return self.upload(data, to: req.url,query: req.query,options: req.options).then {data in
                 try await req.decode(data)
             }
         }
@@ -197,7 +197,7 @@ extension HTTP.Client{
     public func upload(
         _ file:URL,
         to url:String,
-        params:URLParams?=nil,
+        query:URLQuery?=nil,
         options:HTTP.Options?=nil)->Response<Data>
     {
         guard let url = URL(url, baseURL:options?.baseURL ?? self.baseURL) else{
@@ -213,7 +213,7 @@ extension HTTP.Client{
         let resp = self.session.upload(
             url,
             file: file,
-            params: params,
+            query: query,
             headers: h,
             timeout: options?.timeout ?? self.timeout,
             fileManager: fileManager).map{
@@ -240,7 +240,7 @@ extension HTTP.Client{
     public func upload(
         _ data:FormData,
         to url:String,
-        params:URLParams?=nil,
+        query:URLQuery?=nil,
         options:HTTP.Options?=nil)->Response<Data>
     {
         guard let url = URL(url, baseURL: options?.baseURL ?? self.baseURL) else{
@@ -253,7 +253,7 @@ extension HTTP.Client{
         let resp = self.session.upload(
             url,
             form: data,
-            params: params,
+            query: query,
             headers: h,
             timeout: options?.timeout ?? self.timeout,
             fileManager: fileManager).map{
@@ -275,24 +275,7 @@ extension HTTP.Client{
     ///
     @discardableResult
     public func download<R:DownloadRequest>(_ req:R)->Response<String>{
-        guard let url = URL(req.url, baseURL: self.baseURL) else{
-            return .init(HTTP.Error.invalidURL(url: req.url))
-        }
-        var aheaders = self.headers
-        if let newh = req.options?.headers {
-            aheaders.merge(newh)
-        }
-        let resp = self.session.download(
-            url,
-            params: req.parameters,
-            headers: aheaders,
-            timeout: req.options?.timeout ?? self.timeout,
-            fileManager: fileManager,
-            transfer:req.transfer)
-        if debug{
-            resp.debugPrint()
-        }
-        return resp
+        self.download(req.url,query: req.query,options: req.options,transfer: req.transfer)
     }
     /// Send a simple download  request
     ///
@@ -308,7 +291,7 @@ extension HTTP.Client{
     @discardableResult
     public func download(
         _ url:String,
-        params:URLParams?=nil,
+        query:URLQuery?=nil,
         options:HTTP.Options?=nil,
         transfer: FileTransfer? = nil)->Response<String>
     {
@@ -321,7 +304,7 @@ extension HTTP.Client{
         }
         let resp = self.session.download(
             url,
-            params: params,
+            query: query,
             headers: aheaders,
             timeout: options?.timeout ?? self.timeout,
             fileManager: fileManager,
@@ -360,40 +343,7 @@ extension URL{
         }
     }
 }
-extension HTTP{
-    /// Request verrify result
-    public enum FilterResult{
-        /// Do not do anything
-        case none
-        /// replace original request
-        case replace(URLRequest)
-        /// return a response directly
-        case response(Result<Data,Swift.Error>)
-    }
-    public struct Options{
-        ///overwrite the global baseURL
-        public var baseURL:URL?
-        /// overwrite the global method settings
-        public var method:Method?
-        /// overwrite the global retrier settings
-        public var retrier:Retrier?
-        /// merge into global headers
-        public var headers:[String:String]?
-        /// overwrite global timeout settings
-        public var timeout:TimeInterval?
-        public init(
-            _ method:Method?=nil,
-            baseURL:URL?=nil,
-            retrier:Retrier?=nil,
-            headers:[String:String]?=nil,
-            timeout:TimeInterval?=nil) {
-            self.method = method
-            self.retrier = retrier
-            self.headers = headers
-            self.timeout = timeout
-        }
-    }
-}
+
 extension HTTP{
     public typealias Challenge = URLAuthenticationChallenge
     public enum ChallengeResult{

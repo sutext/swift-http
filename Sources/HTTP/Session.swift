@@ -25,7 +25,7 @@ class Session:NSObject{
     func request(_ req:URLRequest, retrier:HTTP.Retrier? = nil)->Response<Data>{
         var urlreq = req
         do {
-            let fr = try self.client.delegate?.client(client, fillterRequest: urlreq)
+            let fr = try self.client.delegate?.client(client, filterRequest: urlreq)
             switch fr{
             case .response(let resp):
                 return .init(resp)
@@ -45,14 +45,14 @@ class Session:NSObject{
     func upload(
         _ url:URL,
         file:URL,
-        params:URLParams?,
+        query:URLQuery?,
         headers:HTTP.Headers?,
         timeout:TimeInterval? = nil,
         fileManager:FileManager = .default)->Response<Data>
     {
         do {
-            var urlreq = URLRequest.query(url,method: .post,params: params, headers: headers, timeout: timeout)
-            let fr = try self.client.delegate?.client(client, fillterRequest: urlreq)
+            var urlreq = URLRequest.query(url,method: .post,query: query, headers: headers, timeout: timeout)
+            let fr = try self.client.delegate?.client(client, filterRequest: urlreq)
             switch fr{
             case .response(let resp):
                 return .init(resp)
@@ -72,15 +72,15 @@ class Session:NSObject{
     func upload(
         _ url:URL,
         form:FormData,
-        params:URLParams?,
+        query:URLQuery?,
         headers:HTTP.Headers?,
         timeout:TimeInterval? = nil,
         fileManager:FileManager = .default)->Response<Data>
     {
         do {
-            var urlreq = URLRequest.query(url,method: .post,params: params, headers: headers, timeout: timeout)
+            var urlreq = URLRequest.query(url,method: .post,query: query, headers: headers, timeout: timeout)
             urlreq.setHeader(form.contentType, for: .contentType)
-            let fr = try self.client.delegate?.client(client, fillterRequest: urlreq)
+            let fr = try self.client.delegate?.client(client, filterRequest: urlreq)
             switch fr{
             case .response(let resp):
                 return .init(resp)
@@ -123,13 +123,13 @@ class Session:NSObject{
     }
     func download(
         _ url: URL,
-        params:URLParams?,
+        query:URLQuery?,
         headers:HTTP.Headers?,
         timeout:TimeInterval?,
         fileManager:FileManager,
         transfer:FileTransfer? = nil)->Response<String>
     {
-        let urlreq = URLRequest.query(url,method: .get,params: params, headers: headers, timeout: timeout)
+        let urlreq = URLRequest.query(url,method: .get,query: query, headers: headers, timeout: timeout)
         let task = self.session.downloadTask(with: urlreq)
         let req = DownloadTask(task,session: self, transfer: transfer, fileManager: fileManager)
         self.add(req)

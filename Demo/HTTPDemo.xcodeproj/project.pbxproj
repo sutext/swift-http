@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		33A0FD1A2D9A94D600D5E6F0 /* HTTP in Frameworks */ = {isa = PBXBuildFile; productRef = 33A0FD192D9A94D600D5E6F0 /* HTTP */; };
+		33A0FE2E2DA5008D00D5E6F0 /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = 33A0FE2D2DA5008D00D5E6F0 /* SwiftProtobuf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -58,6 +59,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				33A0FD1A2D9A94D600D5E6F0 /* HTTP in Frameworks */,
+				33A0FE2E2DA5008D00D5E6F0 /* SwiftProtobuf in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -128,6 +130,7 @@
 			name = HTTPDemo;
 			packageProductDependencies = (
 				33A0FD192D9A94D600D5E6F0 /* HTTP */,
+				33A0FE2D2DA5008D00D5E6F0 /* SwiftProtobuf */,
 			);
 			productName = HTTPDemo;
 			productReference = 33A0FCEC2D9A946400D5E6F0 /* HTTPDemo.app */;
@@ -212,6 +215,7 @@
 			mainGroup = 33CC169F2D0994760063F140;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				33A0FE2C2DA5005D00D5E6F0 /* XCRemoteSwiftPackageReference "swift-protobuf" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 33CC16A92D0994760063F140 /* Products */;
@@ -577,10 +581,26 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		33A0FE2C2DA5005D00D5E6F0 /* XCRemoteSwiftPackageReference "swift-protobuf" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-protobuf.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.29.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		33A0FD192D9A94D600D5E6F0 /* HTTP */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = HTTP;
+		};
+		33A0FE2D2DA5008D00D5E6F0 /* SwiftProtobuf */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 33A0FE2C2DA5005D00D5E6F0 /* XCRemoteSwiftPackageReference "swift-protobuf" */;
+			productName = SwiftProtobuf;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
