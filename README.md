@@ -30,39 +30,32 @@ let package = Package(
 ### Usage
 
 ```swift
-class Client:HTTP.Client,@unchecked Sendable{
+let net = Client()
+class Client:HTTPClient, HTTPDelegate,@unchecked Sendable{
     override init() {
         super.init()
         self.debug = true
         self.delegate = self
     }
-}
-extension Client:HTTPDelegate{
-    func client(_ client: HTTP.Client, shouldUpdate config: URLSessionConfiguration) {
-        
-    }
-    
-    func client(_ client: HTTP.Client, modifyResult result: Result<Data, any Error>, request: URLRequest, response: HTTPURLResponse) async throws -> Result<Data, any Error> {
-        result
-    }
-    
-    func client(_ client: HTTP.Client, fillterRequest request: URLRequest) throws -> HTTP.FilterResult {
-        .none
-    }
-    
-    func client(_ client: HTTP.Client, restartRequest request: URLRequest, error: any Error) async throws -> URLRequest {
-        throw error
-    }
-    
-    func client(_ client: HTTP.Client, task: URLSessionTask, didReceive challenge: HTTP.Challenge) -> HTTP.ChallengeResult {
-        .useDefault
+    func client(_ client: HTTPClient, fillterRequest request: URLRequest) throws -> FilterResult {
+        guard let str = request.url?.absoluteString else{
+            throw HTTPError.invalidURL(url: "")
+        }
+        guard str.hasPrefix("http") else{
+            throw HTTPError.invalidURL(url: str)
+        }
+        return .none
+//        var result = JSON([:])
+//        result.code = "ok"
+//        result.message = "test directly return"
+//        return .response(.success(result.rawData!))
     }
 }
 
 
 struct JSONRequest:Request,ExpressibleByStringLiteral{
     var url: String{ path }
-    var options: HTTP.Options? = .init()
+    var options: Options? = .init()
     var parameters:HTTPParams?{ params }
     
     let path: String
@@ -82,7 +75,7 @@ protocol Model{
 }
 struct ModelRequest<M:Model>:Request,ExpressibleByStringLiteral{
     var url: String{ path }
-    var options: HTTP.Options? = .init()
+    var options: Options? = .init()
     var parameters:HTTPParams?{ params }
     
     let path: String
@@ -95,6 +88,14 @@ struct ModelRequest<M:Model>:Request,ExpressibleByStringLiteral{
     }
     init(stringLiteral value: StringLiteralType) {
         self.init(path: value)
+    }
+}
+struct ConfigRequest:Request{
+    var options: Options?{ .get() }
+    var parameters: (any HTTPParams)? { nil }
+    var url: String{ "https://accounts.google.com/.well-known/openid-configuration" }
+    func decode(_ data: Data) async throws -> GoogleOidcConfig {
+        try GoogleOidcConfig(JSON.parse(data))
     }
 }
 struct GoogleOidcConfig:Model{
@@ -115,7 +116,7 @@ struct GoogleOidcConfig:Model{
     var id_token_signing_alg_values_supported:[String]
     init(_ json: JSON) throws {
         guard json != .null else{
-            throw HTTP.Error.invalidResponseData
+            throw HTTPError.invalidResponseData
         }
         issuer = json.issuer.string
         jwks_uri = json.jwks_uri.string
@@ -134,16 +135,8 @@ struct GoogleOidcConfig:Model{
         id_token_signing_alg_values_supported = json.id_token_signing_alg_values_supported.compactMap{ $1.string }
     }
 }
-final class HttpTests: XCTestCase {
-    let client = Client()
-    func testGet() async throws {
-        var req:ModelRequest<GoogleOidcConfig> = "https://accounts.google.com/.well-known/openid-configuration"
-        req.params.username = "hello"
-        req.params.password = "xxxxx"
-        req.options?.method = .get
-        let config = try await client.request(req).wait()
-        XCTAssertNotNil(config.issuer)
-    }
-}
+
+let config = try await net.request(ConfigRequest()).wait()
+print(config)
 
 ```

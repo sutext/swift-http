@@ -10,7 +10,7 @@ import Foundation
 public protocol HTTPDelegate:AnyObject{
     /// Update the URLSessionConfiguration for network
     ///
-    ///     func client(_ client:HTTP.Client,shouldUpdate config:URLSessionConfiguration) {
+    ///     func client(_ client:HTTPClient,shouldUpdate config:URLSessionConfiguration) {
     ///         config.httpShouldUsePipelining = true
     ///         config.timeoutIntervalForRequest = 60
     ///         config.timeoutIntervalForResource = 7*24*3600
@@ -88,8 +88,8 @@ public extension HTTPDelegate{
 }
 
 ///
-/// `HTTP Client` is network configure center.
-///  Usually you can inherit from `HTTP.Client` and override the configuration params .
+/// `HTTPClient` is network configure center.
+///  Usually you can inherit from `HTTPClient` and override the configuration params .
 ///
 open class HTTPClient:@unchecked Sendable{
     public init() { session.client = self }

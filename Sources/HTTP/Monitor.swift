@@ -11,7 +11,7 @@ import Foundation
 public class Network{
     private static let monitor:NWPathMonitor = NWPathMonitor()
     private static let notify:NotificationCenter = .init()
-    private static let queue:DispatchQueue = .init(label: "swift.http.monitor.queue")
+    private static let queue:DispatchQueue = .init(label: "SwiftHTTP.monitor")
     /// global network status
     public private(set) static var status:NWPath.Status = .unsatisfied{
         didSet{
@@ -72,9 +72,9 @@ public class Network{
 }
 extension Network{
     public enum ObserverType:String,CaseIterable{
-        case path = "swift.http.observer.path"
-        case status = "swift.http.observer.status"
-        case interface = "swift.http.observer.interface"
+        case path = "http.observer.path"
+        case status = "http.observer.status"
+        case interface = "http.observer.interface"
         var notifyName:Notification.Name{ .init(rawValue: rawValue) }
     }
 }
