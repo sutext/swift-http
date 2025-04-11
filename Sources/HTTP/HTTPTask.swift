@@ -8,16 +8,16 @@
 import Foundation
 
 extension URLRequest{
-    public var method:HTTP.Method?{
+    public var method:Method?{
         guard let httpMethod else {
             return nil
         }
         return .init(rawValue: httpMethod)
     }
-    public mutating func setHeader(_ value:String,for field:HTTP.Headers.Field){
+    public mutating func setHeader(_ value:String,for field:Headers.Field){
         setValue(value, forHTTPHeaderField: field.rawValue)
     }
-    public func header(for field:HTTP.Headers.Field)->String?{
+    public func header(for field:Headers.Field)->String?{
         value(forHTTPHeaderField: field.rawValue)
     }
     public func header(for field:String)->String?{
@@ -34,14 +34,14 @@ public class HTTPTask:@unchecked Sendable{
     init(
         _ task:URLSessionTask,
         session:Session,
-        retrier:HTTP.Retrier?){
+        retrier:Retrier?){
         self.promise = .init()
         self.task = task
         self.session = session
         self.retrier  = retrier
     }
     /// current retrier if present
-    public var retrier:HTTP.Retrier?
+    public var retrier:Retrier?
     /// the metrics of current task
     public var metrics:URLSessionTaskMetrics?
     /// the unique identifier of current request
@@ -61,7 +61,7 @@ public class HTTPTask:@unchecked Sendable{
     /// the current http status code
     public var statusCode:Int?{  response?.statusCode  }
     /// the current http method
-    public var method:HTTP.Method? {
+    public var method:Method? {
         request?.method
     }
     public func resume()  {
@@ -100,12 +100,12 @@ public class HTTPTask:@unchecked Sendable{
             return await self.retry(when: error)
         }
         guard let resp = response else {
-            let error = HTTP.Error.invalidResponse(resp: task.response)
+            let error = HTTPError.invalidResponse(resp: task.response)
             self.error = error
             return await self.retry(when: error)
         }
         guard [200,204,205].contains(resp.statusCode) else {
-            let error = HTTP.Error.invalidStatus(code:resp.statusCode)
+            let error = HTTPError.invalidStatus(code:resp.statusCode)
             self.error = error
             return await self.retry(when: error)
         }
@@ -192,17 +192,17 @@ public class DownloadTask:HTTPTask,@unchecked Sendable{
             return await self.retry(when: error)
         }
         guard let resp = response else {
-            let error = HTTP.Error.invalidResponse(resp: task.response)
+            let error = HTTPError.invalidResponse(resp: task.response)
             self.error = error
             return await self.retry(when: error)
         }
         guard [200,204,205].contains(resp.statusCode) else {
-            let error = HTTP.Error.invalidStatus(code:resp.statusCode)
+            let error = HTTPError.invalidStatus(code:resp.statusCode)
             self.error = error
             return await self.retry(when: error)
         }
         guard let location = self.fileURL?.absoluteString else {
-            let error = HTTP.Error.invalidDownloadFile
+            let error = HTTPError.invalidDownloadFile
             self.error = error
             return await retry(when: error)
         }

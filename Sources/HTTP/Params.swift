@@ -120,7 +120,7 @@ extension URLRequest{
             self.url = url
         }
     }
-    static func create(_ url:URL,method:HTTP.Method,params:HTTPParams?,headers:HTTP.Headers?,timeout:TimeInterval?)->URLRequest{
+    static func create(_ url:URL,method:Method,params:HTTPParams?,headers:Headers?,timeout:TimeInterval?)->URLRequest{
         var req = URLRequest(url:url , cachePolicy: .useProtocolCachePolicy, timeoutInterval: timeout ?? 0)
         if let headers{
             req.allHTTPHeaderFields = headers.values
@@ -143,7 +143,7 @@ extension URLRequest{
         }
         return req
     }
-    static func query(_ url:URL,method:HTTP.Method,query:URLQuery?,headers:HTTP.Headers?,timeout:TimeInterval?)->URLRequest{
+    static func query(_ url:URL,method:Method,query:URLQuery?,headers:Headers?,timeout:TimeInterval?)->URLRequest{
         var req = URLRequest(url:url , cachePolicy: .useProtocolCachePolicy, timeoutInterval: timeout ?? 0)
         if let headers{
             req.allHTTPHeaderFields = headers.values

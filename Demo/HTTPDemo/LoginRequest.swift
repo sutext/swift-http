@@ -22,7 +22,7 @@ extension Message{
 extension LoginParams:HTTPParams{}
 class PBRequest<Req:Message&HTTPParams,Resp:Message>:Request{
     let url: String
-    var options: HTTP.Options? = .post()
+    var options: Options? = .post()
     var params:Req = .init()
     var parameters: HTTPParams?{ params }
     func decode(_ data: Data) async throws -> Resp {

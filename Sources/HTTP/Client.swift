@@ -18,7 +18,7 @@ public protocol HTTPDelegate:AnyObject{
     /// - Parameters:
     ///    - config:The internal default session config.
     ///    
-    func client(_ client:HTTP.Client,shouldUpdate config:URLSessionConfiguration)
+    func client(_ client:HTTPClient,shouldUpdate config:URLSessionConfiguration)
     ///  request hook function
     ///
     /// - You can change the request params by return .rewrite(request).
@@ -32,7 +32,7 @@ public protocol HTTPDelegate:AnyObject{
     ///
     /// - Note: All download tasks do not require filter
     ///
-    func client(_ client:HTTP.Client,modifyResult result:Result<Data,Error>,request:URLRequest,response:HTTPURLResponse)async throws->Result<Data,Error>
+    func client(_ client:HTTPClient,modifyResult result:Result<Data,Error>,request:URLRequest,response:HTTPURLResponse)async throws->Result<Data,Error>
     /// responsse hook function
     ///
     /// - You can change the response by return new resultt
@@ -47,7 +47,7 @@ public protocol HTTPDelegate:AnyObject{
     /// - Returns: A new result
     /// - Note: All download tasks do not require verification
     ///
-    func client(_ client:HTTP.Client,filterRequest request:URLRequest)throws->HTTP.FilterResult
+    func client(_ client:HTTPClient,filterRequest request:URLRequest)throws->FilterResult
     /// .responsse hook function
     ///
     /// - You can return a new request for restart
@@ -61,64 +61,61 @@ public protocol HTTPDelegate:AnyObject{
     /// - Returns: A new `URLRequest` to be restart
     /// - Note: All download tasks do not require retry mechanism
     ///
-    func client(_ client:HTTP.Client,restartRequest request:URLRequest,error:Error)async throws->URLRequest
+    func client(_ client:HTTPClient,restartRequest request:URLRequest,error:Error)async throws->URLRequest
     
     /// Resolve the URLAuthenticationChallenge for the task.
     ///
     /// - Returns `ChallengeResult` for `urlSession:task:didReceive`
-    func client(_ client:HTTP.Client,task:URLSessionTask,didReceive challenge:HTTP.Challenge)->HTTP.ChallengeResult
+    func client(_ client:HTTPClient,task:URLSessionTask,didReceive challenge:Challenge)->ChallengeResult
 }
 /// Default `HTTPDelegate`  behavior
 public extension HTTPDelegate{
-    func client(_ client: HTTP.Client, shouldUpdate config: URLSessionConfiguration) {
+    func client(_ client: HTTPClient, shouldUpdate config: URLSessionConfiguration) {
         
     }
-    func client(_ client: HTTP.Client, modifyResult result: Result<Data, any Error>, request: URLRequest, response: HTTPURLResponse) async throws -> Result<Data, any Error> {
+    func client(_ client: HTTPClient, modifyResult result: Result<Data, any Error>, request: URLRequest, response: HTTPURLResponse) async throws -> Result<Data, any Error> {
         result
     }
-    func client(_ client: HTTP.Client, filterRequest request: URLRequest) throws -> HTTP.FilterResult {
+    func client(_ client: HTTPClient, filterRequest request: URLRequest) throws -> FilterResult {
         .none
     }
-    func client(_ client: HTTP.Client, restartRequest request: URLRequest, error: any Error) async throws -> URLRequest {
+    func client(_ client: HTTPClient, restartRequest request: URLRequest, error: any Error) async throws -> URLRequest {
         throw error
     }
-    func client(_ client: HTTP.Client, task: URLSessionTask, didReceive challenge: HTTP.Challenge) -> HTTP.ChallengeResult {
+    func client(_ client: HTTPClient, task: URLSessionTask, didReceive challenge: Challenge) -> ChallengeResult {
         .useDefault
     }
 }
 
-extension HTTP{
-    
-    ///
-    /// `HTTP Client` is network configure center.
-    ///  Usually you can inherit from `HTTP.Client` and override the configuration params .
-    ///
-    open class Client:@unchecked Sendable{
-        public init() { session.client = self }
-        private let session:Session = Session()
-        /// global baseURL for all request
-        public var baseURL:URL? = nil
-        /// the http hocks and settings delegate
-        public weak var delegate:HTTPDelegate?
-        /// print debug log or not. override for custom
-        public var debug:Bool = false
-        /// global http method `.get` .  Override it in  options
-        public var method:Method = .get
-        /// global retryer  `nil` . Override it in  options
-        public var retrier:Retrier? = nil
-        /// global http headers `[:]`. Override it in  options
-        public var headers:Headers = .default
-        /// global timeout in secends `60`. Override it in  options
-        public var timeout:TimeInterval = 60
-        /// global fileManager. override for custom
-        public var fileManager:FileManager = .default
-        /// Cancel all the pening tasks except the download task
-        public func cancelAllTask(){
-            session.cancelAllTask()
-        }
+///
+/// `HTTP Client` is network configure center.
+///  Usually you can inherit from `HTTP.Client` and override the configuration params .
+///
+open class HTTPClient:@unchecked Sendable{
+    public init() { session.client = self }
+    private let session:Session = Session()
+    /// global baseURL for all request
+    public var baseURL:URL? = nil
+    /// the http hocks and settings delegate
+    public weak var delegate:HTTPDelegate?
+    /// print debug log or not. override for custom
+    public var debug:Bool = false
+    /// global http method `.get` .  Override it in  options
+    public var method:Method = .get
+    /// global retryer  `nil` . Override it in  options
+    public var retrier:Retrier? = nil
+    /// global http headers `[:]`. Override it in  options
+    public var headers:Headers = .default
+    /// global timeout in secends `60`. Override it in  options
+    public var timeout:TimeInterval = 60
+    /// global fileManager. override for custom
+    public var fileManager:FileManager = .default
+    /// Cancel all the pening tasks except the download task
+    public func cancelAllTask(){
+        session.cancelAllTask()
     }
 }
-extension HTTP.Client{
+extension HTTPClient{
     ///
     /// Send an common data request
     ///
@@ -143,9 +140,9 @@ extension HTTP.Client{
     /// - Returns: `Response<Data>` A handler for task control and progress control
     ///
     @discardableResult
-    public func request(_  url:String,params:HTTPParams?=nil,options:HTTP.Options?=nil)->Response<Data>{
+    public func request(_  url:String,params:HTTPParams?=nil,options:Options?=nil)->Response<Data>{
         guard let url = URL(url, baseURL: options?.baseURL ?? self.baseURL) else{
-            return .init(HTTP.Error.invalidURL(url: url))
+            return .init(HTTPError.invalidURL(url: url))
         }
         let method = options?.method ?? self.method
         let timeout = options?.timeout ?? self.timeout
@@ -198,10 +195,10 @@ extension HTTP.Client{
         _ file:URL,
         to url:String,
         query:URLQuery?=nil,
-        options:HTTP.Options?=nil)->Response<Data>
+        options:Options?=nil)->Response<Data>
     {
         guard let url = URL(url, baseURL:options?.baseURL ?? self.baseURL) else{
-            return .init(HTTP.Error.invalidURL(url: url))
+            return .init(HTTPError.invalidURL(url: url))
         }
         var h = self.headers
         if let headers = options?.headers{
@@ -241,10 +238,10 @@ extension HTTP.Client{
         _ data:FormData,
         to url:String,
         query:URLQuery?=nil,
-        options:HTTP.Options?=nil)->Response<Data>
+        options:Options?=nil)->Response<Data>
     {
         guard let url = URL(url, baseURL: options?.baseURL ?? self.baseURL) else{
-            return .init(HTTP.Error.invalidURL(url: url))
+            return .init(HTTPError.invalidURL(url: url))
         }
         var h = self.headers
         if let headers = options?.headers{
@@ -292,11 +289,11 @@ extension HTTP.Client{
     public func download(
         _ url:String,
         query:URLQuery?=nil,
-        options:HTTP.Options?=nil,
+        options:Options?=nil,
         transfer: FileTransfer? = nil)->Response<String>
     {
         guard let url = URL(url, baseURL: options?.baseURL ?? self.baseURL) else{
-            return .init(HTTP.Error.invalidURL(url: url))
+            return .init(HTTPError.invalidURL(url: url))
         }
         var aheaders = self.headers
         if let newh = options?.headers {
@@ -343,21 +340,63 @@ extension URL{
         }
     }
 }
-
-extension HTTP{
-    public typealias Challenge = URLAuthenticationChallenge
-    public enum ChallengeResult{
-        /* The entire request will be canceled */
-        case cancel
-        /* This challenge is rejected and the next authentication protection space should be tried */
-        case reject
-        /* Default handling for the challenge - as if this delegate were not implemented; */
-        case useDefault
-        /* Use the specified credential */
-        case useCredential(URLCredential)
+/// Request verrify result
+public enum FilterResult{
+    /// Do not do anything
+    case none
+    /// replace original request
+    case replace(URLRequest)
+    /// return a response directly
+    case response(Result<Data,Swift.Error>)
+}
+public struct Options{
+    ///overwrite the global baseURL
+    public var baseURL:URL?
+    /// overwrite the global method settings
+    public var method:Method?
+    /// merge into global headers
+    public var headers:[String:String]?
+    /// overwrite global timeout settings
+    public var timeout:TimeInterval?
+    /// overwrite the global retrier settings
+    public var retrier:Retrier?
+    public init(
+        _ method:Method?=nil,
+        baseURL:URL?=nil,
+        headers:[String:String]?=nil,
+        timeout:TimeInterval?=nil,
+        retrier:Retrier?=nil)
+    {
+        self.baseURL = baseURL
+        self.method = method
+        self.retrier = retrier
+        self.headers = headers
+        self.timeout = timeout
+    }
+    public static func get(base:String? = nil,headers:[String:String]?=nil,timeout:TimeInterval? = nil,retrier:Retrier?=nil)->Options{
+        .init(.get,baseURL: base==nil ? nil : URL(string: base!),headers: headers,timeout: timeout,retrier: retrier)
+    }
+    public static func put(base:String? = nil,headers:[String:String]?=nil,timeout:TimeInterval? = nil,retrier:Retrier?=nil)->Options{
+        .init(.put,baseURL: base==nil ? nil : URL(string: base!),headers: headers,timeout: timeout,retrier: retrier)
+    }
+    public static func post(base:String? = nil,headers:[String:String]?=nil,timeout:TimeInterval? = nil,retrier:Retrier?=nil)->Options{
+        .init(.post,baseURL: base==nil ? nil : URL(string: base!),headers: headers,timeout: timeout,retrier: retrier)
+    }
+    public static func delete(base:String? = nil,headers:[String:String]?=nil,timeout:TimeInterval? = nil,retrier:Retrier?=nil)->Options{
+        .init(.delete,baseURL: base==nil ? nil : URL(string: base!),headers: headers,timeout: timeout,retrier: retrier)
     }
 }
-
+public typealias Challenge = URLAuthenticationChallenge
+public enum ChallengeResult{
+    /* The entire request will be canceled */
+    case cancel
+    /* This challenge is rejected and the next authentication protection space should be tried */
+    case reject
+    /* Default handling for the challenge - as if this delegate were not implemented; */
+    case useDefault
+    /* Use the specified credential */
+    case useCredential(URLCredential)
+}
 extension URLCredential{
     public static func create(from p12File:String,key:String)->URLCredential?{
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: p12File)) else {

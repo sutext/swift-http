@@ -7,55 +7,53 @@
 
 import Foundation
 
-extension HTTP{
-    public final class Retrier{
-        /// The total number of times the request is allowed to be retried.
-        public private(set) var count: UInt = 0
-        /// The total number of times the request is allowed to be retried.
-        public let limit: UInt
-        /// The retry delay policy
-        public let policy:Policy
-        /// The HTTP methods that are allowed to be retried.
-        public let methods: Set<HTTP.Method>
-        /// The HTTP status codes that are automatically retried by the policy.
-        public let statusCodes: Set<Int>
-        /// The URL error codes that are automatically retried by the policy.
-        public let urlErrorCodes: Set<URLError.Code>
-        /// Creates an `Retrier` from the specified parameters.
-        ///
-        /// - Parameters:
-        ///   - limit:        The total number of times the request is allowed to be retried.
-        ///   - methods:      The HTTP methods that are allowed to be retried.
-        ///   - statusCodes:  The HTTP status codes that are automatically retried by the policy
-        ///   - urlErrorCodes:The URL error codes that are automatically retried by the policy.
-        public init(limit: UInt = Retrier.defaultLimit,
-                    policy:Policy = .exponential(base: 2, scale: 0.5),
-                    methods: Set<HTTP.Method> = Retrier.defaultMethods,
-                    statusCodes: Set<Int> = Retrier.defaultStatusCodes,
-                    urlErrorCodes: Set<URLError.Code> = Retrier.defaultURLErrorCodes) {
-            switch policy {
-            case .exponential(let base, _):
-                assert(base >= 2, "The `exponential base` must be a minimum of 2.")
-            case .fixedDelay(let delay):
-                assert(delay >= 0, "The `fixedDelay time` must be a minimum of 0.")
-            default:
-                break
-            }
-            self.limit = limit
-            self.policy = policy
-            self.methods = methods
-            self.statusCodes = statusCodes
-            self.urlErrorCodes = urlErrorCodes
+public final class Retrier{
+    /// The total number of times the request is allowed to be retried.
+    public private(set) var count: UInt = 0
+    /// The total number of times the request is allowed to be retried.
+    public let limit: UInt
+    /// The retry delay policy
+    public let policy:Policy
+    /// The HTTP methods that are allowed to be retried.
+    public let methods: Set<Method>
+    /// The HTTP status codes that are automatically retried by the policy.
+    public let statusCodes: Set<Int>
+    /// The URL error codes that are automatically retried by the policy.
+    public let urlErrorCodes: Set<URLError.Code>
+    /// Creates an `Retrier` from the specified parameters.
+    ///
+    /// - Parameters:
+    ///   - limit:        The total number of times the request is allowed to be retried.
+    ///   - methods:      The HTTP methods that are allowed to be retried.
+    ///   - statusCodes:  The HTTP status codes that are automatically retried by the policy
+    ///   - urlErrorCodes:The URL error codes that are automatically retried by the policy.
+    public init(limit: UInt = Retrier.defaultLimit,
+                policy:Policy = .exponential(base: 2, scale: 0.5),
+                methods: Set<Method> = Retrier.defaultMethods,
+                statusCodes: Set<Int> = Retrier.defaultStatusCodes,
+                urlErrorCodes: Set<URLError.Code> = Retrier.defaultURLErrorCodes) {
+        switch policy {
+        case .exponential(let base, _):
+            assert(base >= 2, "The `exponential base` must be a minimum of 2.")
+        case .fixedDelay(let delay):
+            assert(delay >= 0, "The `fixedDelay time` must be a minimum of 0.")
+        default:
+            break
         }
+        self.limit = limit
+        self.policy = policy
+        self.methods = methods
+        self.statusCodes = statusCodes
+        self.urlErrorCodes = urlErrorCodes
     }
 }
 /// A retry policy that retries requests using an exponential backoff for allowed HTTP methods and HTTP status codes
 /// as well as certain types of networking errors.
-extension HTTP.Retrier {
+extension Retrier {
     /// A retry policy that automatically retries idempotent requests for network connection lost errors. For more
     /// information about retrying network connection lost errors, please refer to Apple's
     /// [technical document](https://developer.apple.com/library/content/qa/qa1941/_index.html).
-    public static var connectionLost:HTTP.Retrier  {
+    public static var connectionLost:Retrier  {
         .init(statusCodes:[],urlErrorCodes: [.networkConnectionLost])
     }
     /// The default retry limit for retry policies.
@@ -63,7 +61,7 @@ extension HTTP.Retrier {
 
     /// The default HTTP methods to retry.
     /// See [RFC 2616 - Section 9.1.2](https://www.w3.org/Protocols/rfc2616/rfc2616-sec9.html) for more information.
-    public static let defaultMethods: Set<HTTP.Method> = [
+    public static let defaultMethods: Set<Method> = [
         .get,       // [GET] generally idempotent
         .put,       // [PUT]ot always idempotent
         .head,      // [HEAD] generally idempotent
@@ -314,7 +312,7 @@ extension HTTP.Retrier {
         return nil
     }
 }
-extension HTTP.Retrier {
+extension Retrier {
     public enum Policy:Equatable{
         /// retry immediately
         case immediately

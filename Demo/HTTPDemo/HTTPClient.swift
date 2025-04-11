@@ -9,18 +9,18 @@ import HTTP
 import Foundation
 
 let net = Client()
-class Client:HTTP.Client, HTTPDelegate,@unchecked Sendable{
+class Client:HTTPClient, HTTPDelegate,@unchecked Sendable{
     override init() {
         super.init()
         self.debug = true
         self.delegate = self
     }
-    func client(_ client: HTTP.Client, fillterRequest request: URLRequest) throws -> HTTP.FilterResult {
+    func client(_ client: HTTPClient, fillterRequest request: URLRequest) throws -> FilterResult {
         guard let str = request.url?.absoluteString else{
-            throw HTTP.Error.invalidURL(url: "")
+            throw HTTPError.invalidURL(url: "")
         }
         guard str.hasPrefix("http") else{
-            throw HTTP.Error.invalidURL(url: str)
+            throw HTTPError.invalidURL(url: str)
         }
         return .none
 //        var result = JSON([:])
@@ -33,7 +33,7 @@ class Client:HTTP.Client, HTTPDelegate,@unchecked Sendable{
 
 struct JSONRequest:Request,ExpressibleByStringLiteral{
     var url: String{ path }
-    var options: HTTP.Options? = .init()
+    var options: Options? = .init()
     var parameters:HTTPParams?{ params }
     
     let path: String
@@ -53,7 +53,7 @@ protocol Model{
 }
 struct ModelRequest<M:Model>:Request,ExpressibleByStringLiteral{
     var url: String{ path }
-    var options: HTTP.Options? = .init()
+    var options: Options? = .init()
     var parameters:HTTPParams?{ params }
     
     let path: String
@@ -69,7 +69,7 @@ struct ModelRequest<M:Model>:Request,ExpressibleByStringLiteral{
     }
 }
 struct ConfigRequest:Request{
-    var options: HTTP.Options?{ .get() }
+    var options: Options?{ .get() }
     var parameters: (any HTTPParams)? { nil }
     var url: String{ "https://accounts.google.com/.well-known/openid-configuration" }
     func decode(_ data: Data) async throws -> GoogleOidcConfig {
@@ -94,7 +94,7 @@ struct GoogleOidcConfig:Model{
     var id_token_signing_alg_values_supported:[String]
     init(_ json: JSON) throws {
         guard json != .null else{
-            throw HTTP.Error.invalidResponseData
+            throw HTTPError.invalidResponseData
         }
         issuer = json.issuer.string
         jwks_uri = json.jwks_uri.string

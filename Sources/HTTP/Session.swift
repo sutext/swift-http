@@ -9,7 +9,7 @@ import Foundation
 
 class Session:NSObject{
     @Safely private var tasks:[Int:HTTPTask] = [:]
-    private let rootQueue:DispatchQueue = DispatchQueue(label: "SwiftHTTP.\(UInt.random(in: 100000...199999))",attributes: .concurrent)
+    private let rootQueue:DispatchQueue = DispatchQueue(label: "SwiftHTTP.root.\(UInt.random(in: 100000...199999))",attributes: .concurrent)
     lazy var session:URLSession = {
         let config = URLSessionConfiguration.default
         config.httpShouldUsePipelining = true
@@ -21,8 +21,8 @@ class Session:NSObject{
         let session = URLSession(configuration: config,delegate: self,delegateQueue: queue)
         return session
     }()
-    weak var client:HTTP.Client!
-    func request(_ req:URLRequest, retrier:HTTP.Retrier? = nil)->Response<Data>{
+    weak var client:HTTPClient!
+    func request(_ req:URLRequest, retrier:Retrier? = nil)->Response<Data>{
         var urlreq = req
         do {
             let fr = try self.client.delegate?.client(client, filterRequest: urlreq)
@@ -46,7 +46,7 @@ class Session:NSObject{
         _ url:URL,
         file:URL,
         query:URLQuery?,
-        headers:HTTP.Headers?,
+        headers:Headers?,
         timeout:TimeInterval? = nil,
         fileManager:FileManager = .default)->Response<Data>
     {
@@ -73,7 +73,7 @@ class Session:NSObject{
         _ url:URL,
         form:FormData,
         query:URLQuery?,
-        headers:HTTP.Headers?,
+        headers:Headers?,
         timeout:TimeInterval? = nil,
         fileManager:FileManager = .default)->Response<Data>
     {
@@ -116,7 +116,7 @@ class Session:NSObject{
         self.add(req)
         return Response(req).then { data in
             guard let location = String(data:data,encoding: .utf8) else{
-                throw HTTP.Error.invalidDownloadFile
+                throw HTTPError.invalidDownloadFile
             }
             return location
         }
@@ -124,7 +124,7 @@ class Session:NSObject{
     func download(
         _ url: URL,
         query:URLQuery?,
-        headers:HTTP.Headers?,
+        headers:Headers?,
         timeout:TimeInterval?,
         fileManager:FileManager,
         transfer:FileTransfer? = nil)->Response<String>
@@ -135,7 +135,7 @@ class Session:NSObject{
         self.add(req)
         return Response(req).then { data in
             guard let location = String(data:data,encoding: .utf8) else{
-                throw HTTP.Error.invalidDownloadFile
+                throw HTTPError.invalidDownloadFile
             }
             return location
         }

@@ -24,7 +24,7 @@ extension HTTPURLResponse{
         }
         return Date().timeIntervalSince1970
     }
-    public func header(for field:HTTP.Headers.Field)->String?{
+    public func header(for field:Headers.Field)->String?{
         value(forHTTPHeaderField: field.rawValue)
     }
     public func header(for field:String)->String?{

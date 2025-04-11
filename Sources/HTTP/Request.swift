@@ -12,7 +12,7 @@ public protocol Request{
     /// request url
     var url: String{ get }
     /// request options
-    var options: HTTP.Options?{ get }
+    var options: Options?{ get }
     /// request params
     var parameters: HTTPParams?{ get }
     /// model convert method
@@ -32,7 +32,7 @@ public protocol UploadRequest{
     /// upload content
     var upload:Upload{ get }
     /// request options
-    var options: HTTP.Options?{ get }
+    var options: Options?{ get }
     /// model convert method
     func decode(_ data:Data)async throws ->Result
 }
@@ -43,7 +43,7 @@ public protocol DownloadRequest{
     /// url query parameters
     var query: URLQuery?{ get }
     /// download optiions
-    var options: HTTP.Options?{ get }
+    var options: Options?{ get }
     /// resolve download file location
     var transfer:FileTransfer?{ get }
 

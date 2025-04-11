@@ -57,13 +57,13 @@ public final class FormData {
     }
 
     class BodyPart {
-        let headers: HTTP.Headers
+        let headers: Headers
         let bodyStream: InputStream
         let bodyContentLength: UInt64
         var hasInitialBoundary = false
         var hasFinalBoundary = false
 
-        init(headers: HTTP.Headers, bodyStream: InputStream, bodyContentLength: UInt64) {
+        init(headers: Headers, bodyStream: InputStream, bodyContentLength: UInt64) {
             self.headers = headers
             self.bodyStream = bodyStream
             self.bodyContentLength = bodyContentLength
@@ -88,7 +88,7 @@ public final class FormData {
     let fileManager: FileManager
 
     private var bodyParts: [BodyPart]
-    private var bodyPartError: Error?
+    private var bodyPartError: FormError?
     private let streamBufferSize: Int
 
     // MARK: - Lifecycle
@@ -284,7 +284,7 @@ public final class FormData {
     ///   - stream:  `InputStream` to encode into the instance.
     ///   - length:  Length, in bytes, of the stream.
     ///   - headers: `Headers` for the body part.
-    public func append(_ stream: InputStream, withLength length: UInt64, headers: HTTP.Headers) {
+    public func append(_ stream: InputStream, withLength length: UInt64, headers: Headers) {
         let bodyPart = BodyPart(headers: headers, bodyStream: stream, bodyContentLength: length)
         bodyParts.append(bodyPart)
     }
@@ -330,13 +330,13 @@ public final class FormData {
         }
 
         if fileManager.fileExists(atPath: fileURL.path) {
-            throw Error.outputStreamFileAlreadyExists(at: fileURL)
+            throw FormError.outputStreamFileAlreadyExists(at: fileURL)
         } else if !fileURL.isFileURL {
-            throw Error.outputStreamURLInvalid(url: fileURL)
+            throw FormError.outputStreamURLInvalid(url: fileURL)
         }
 
         guard let outputStream = OutputStream(url: fileURL, append: false) else {
-            throw Error.outputStreamCreationFailed(for: fileURL)
+            throw FormError.outputStreamCreationFailed(for: fileURL)
         }
 
         outputStream.open()
@@ -391,7 +391,7 @@ public final class FormData {
             let bytesRead = inputStream.read(&buffer, maxLength: streamBufferSize)
 
             if let error = inputStream.streamError {
-                throw Error.inputStreamReadFailed(error: error)
+                throw FormError.inputStreamReadFailed(error: error)
             }
 
             if bytesRead > 0 {
@@ -402,7 +402,7 @@ public final class FormData {
         }
 
         guard UInt64(encoded.count) == bodyPart.bodyContentLength else {
-            throw Error.unexpectedInputStreamLength(expected: bodyPart.bodyContentLength, read: UInt64(encoded.count))
+            throw FormError.unexpectedInputStreamLength(expected: bodyPart.bodyContentLength, read: UInt64(encoded.count))
         }
 
         return encoded
@@ -438,7 +438,7 @@ public final class FormData {
             let bytesRead = inputStream.read(&buffer, maxLength: streamBufferSize)
 
             if let streamError = inputStream.streamError {
-                throw Error.inputStreamReadFailed(error: streamError)
+                throw FormError.inputStreamReadFailed(error: streamError)
             }
 
             if bytesRead > 0 {
@@ -475,7 +475,7 @@ public final class FormData {
             let bytesWritten = outputStream.write(buffer, maxLength: bytesToWrite)
 
             if let error = outputStream.streamError {
-                throw Error.outputStreamWriteFailed(error: error)
+                throw FormError.outputStreamWriteFailed(error: error)
             }
 
             bytesToWrite -= bytesWritten
@@ -500,11 +500,11 @@ public final class FormData {
 
     // MARK: - Private - Content Headers
 
-    private func contentHeaders(withName name: String, fileName: String? = nil, mimeType: String? = nil) -> HTTP.Headers {
+    private func contentHeaders(withName name: String, fileName: String? = nil, mimeType: String? = nil) -> Headers {
         var disposition = "form-data; name=\"\(name)\""
         if let fileName = fileName { disposition += "; filename=\"\(fileName)\"" }
 
-        var headers: HTTP.Headers = [.contentDisposition:disposition]
+        var headers: Headers = [.contentDisposition:disposition]
         if let mimeType = mimeType {
             headers[.contentType] = mimeType
         }
@@ -527,7 +527,7 @@ public final class FormData {
 
     // MARK: - Private - Errors
 
-    private func setBodyPartError(withReason reason: Error) {
+    private func setBodyPartError(withReason reason: FormError) {
         guard bodyPartError == nil else { return }
         bodyPartError = reason
     }
@@ -557,34 +557,32 @@ extension FormData{
     }
 }
 
-extension FormData{
-    public enum Error:Swift.Error {
-        /// The `fileURL` provided for reading an encodable body part isn't a file `URL`.
-        case bodyPartURLInvalid(url: URL)
-        /// The filename of the `fileURL` provided has either an empty `lastPathComponent` or `pathExtension.
-        case bodyPartFilenameInvalid(in: URL)
-        /// The file at the `fileURL` provided was not reachable.
-        case bodyPartFileNotReachable(at: URL)
-        /// Attempting to check the reachability of the `fileURL` provided threw an error.
-        case bodyPartFileNotReachableWithError(atURL: URL, error: Swift.Error)
-        /// The file at the `fileURL` provided is actually a directory.
-        case bodyPartFileIsDirectory(at: URL)
-        /// The size of the file at the `fileURL` provided was not returned by the system.
-        case bodyPartFileSizeNotAvailable(at: URL)
-        /// The attempt to find the size of the file at the `fileURL` provided threw an error.
-        case bodyPartFileSizeQueryFailedWithError(forURL: URL, error: Swift.Error)
-        /// An `InputStream` could not be created for the provided `fileURL`.
-        case bodyPartInputStreamCreationFailed(for: URL)
-        /// An `OutputStream` could not be created when attempting to write the encoded data to disk.
-        case outputStreamCreationFailed(for: URL)
-        /// The encoded body data could not be written to disk because a file already exists at the provided `fileURL`.
-        case outputStreamFileAlreadyExists(at: URL)
-        /// The `fileURL` provided for writing the encoded body data to disk is not a file `URL`.
-        case outputStreamURLInvalid(url: URL)
-        /// The attempt to write the encoded body data to disk failed with an underlying error.
-        case outputStreamWriteFailed(error: Swift.Error)
-        /// The attempt to read an encoded body part `InputStream` failed with underlying system error.
-        case inputStreamReadFailed(error: Swift.Error)
-        case unexpectedInputStreamLength(expected:UInt64,read:UInt64)
-    }
+public enum FormError:Swift.Error {
+    /// The `fileURL` provided for reading an encodable body part isn't a file `URL`.
+    case bodyPartURLInvalid(url: URL)
+    /// The filename of the `fileURL` provided has either an empty `lastPathComponent` or `pathExtension.
+    case bodyPartFilenameInvalid(in: URL)
+    /// The file at the `fileURL` provided was not reachable.
+    case bodyPartFileNotReachable(at: URL)
+    /// Attempting to check the reachability of the `fileURL` provided threw an error.
+    case bodyPartFileNotReachableWithError(atURL: URL, error: Swift.Error)
+    /// The file at the `fileURL` provided is actually a directory.
+    case bodyPartFileIsDirectory(at: URL)
+    /// The size of the file at the `fileURL` provided was not returned by the system.
+    case bodyPartFileSizeNotAvailable(at: URL)
+    /// The attempt to find the size of the file at the `fileURL` provided threw an error.
+    case bodyPartFileSizeQueryFailedWithError(forURL: URL, error: Swift.Error)
+    /// An `InputStream` could not be created for the provided `fileURL`.
+    case bodyPartInputStreamCreationFailed(for: URL)
+    /// An `OutputStream` could not be created when attempting to write the encoded data to disk.
+    case outputStreamCreationFailed(for: URL)
+    /// The encoded body data could not be written to disk because a file already exists at the provided `fileURL`.
+    case outputStreamFileAlreadyExists(at: URL)
+    /// The `fileURL` provided for writing the encoded body data to disk is not a file `URL`.
+    case outputStreamURLInvalid(url: URL)
+    /// The attempt to write the encoded body data to disk failed with an underlying error.
+    case outputStreamWriteFailed(error: Swift.Error)
+    /// The attempt to read an encoded body part `InputStream` failed with underlying system error.
+    case inputStreamReadFailed(error: Swift.Error)
+    case unexpectedInputStreamLength(expected:UInt64,read:UInt64)
 }

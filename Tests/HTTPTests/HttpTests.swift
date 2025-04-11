@@ -1,7 +1,7 @@
 import XCTest
 @testable import HTTP
 
-class Client:HTTP.Client,@unchecked Sendable{
+class Client:HTTPClient,@unchecked Sendable{
     override init() {
         super.init()
         self.debug = true
@@ -9,10 +9,10 @@ class Client:HTTP.Client,@unchecked Sendable{
     }
 }
 extension Client:HTTPDelegate{
-    func client(_ client: HTTP.Client, shouldUpdate config: URLSessionConfiguration) {
+    func client(_ client: HTTPClient, shouldUpdate config: URLSessionConfiguration) {
         
     }
-    func client(_ client: HTTP.Client, task: URLSessionTask, didReceive challenge: HTTP.Challenge) -> HTTP.ChallengeResult {
+    func client(_ client: HTTPClient, task: URLSessionTask, didReceive challenge: Challenge) -> ChallengeResult {
         .useDefault
     }
 }
@@ -20,7 +20,7 @@ extension Client:HTTPDelegate{
 
 struct JSONRequest:Request,ExpressibleByStringLiteral{
     var url: String{ path }
-    var options: HTTP.Options? = .init()
+    var options: Options? = .init()
     var parameters:HTTPParams?{ params }
     
     let path: String
@@ -40,7 +40,7 @@ protocol Model{
 }
 struct ModelRequest<M:Model>:Request,ExpressibleByStringLiteral{
     var url: String{ path }
-    var options: HTTP.Options? = .init()
+    var options: Options? = .init()
     var parameters:HTTPParams?{ params }
     
     let path: String
@@ -73,7 +73,7 @@ struct GoogleOidcConfig:Model{
     var id_token_signing_alg_values_supported:[String]
     init(_ json: JSON) throws {
         guard json != .null else{
-            throw HTTP.Error.invalidResponseData
+            throw HTTPError.invalidResponseData
         }
         issuer = json.issuer.string
         jwks_uri = json.jwks_uri.string
