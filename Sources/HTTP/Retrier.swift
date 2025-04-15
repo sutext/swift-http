@@ -7,7 +7,7 @@
 
 import Foundation
 
-public final class Retrier{
+public final class Retrier:@unchecked Sendable{
     /// The total number of times the request is allowed to be retried.
     public private(set) var count: UInt = 0
     /// The total number of times the request is allowed to be retried.
@@ -313,7 +313,7 @@ extension Retrier {
     }
 }
 extension Retrier {
-    public enum Policy:Equatable{
+    public enum Policy:Equatable,Sendable{
         /// retry immediately
         case immediately
         case exponential(base:Int,scale:Double)

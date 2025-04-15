@@ -7,7 +7,7 @@
 
 import Foundation
 
-public protocol HTTPParams{
+public protocol HTTPParams:Sendable{
     /// http body data. Only exist in `post` `put` and so on
     /// Only one of the `query` and `body` will be encode into the request
     var body:HTTPBody?{ get }
@@ -53,7 +53,7 @@ extension URLParams:HTTPParams{
 
 ///Standardized Plist params encoding
 ///
-public struct PlistParams:HTTPParams,Sendable{
+public struct PlistParams:HTTPParams{
     private var values:AnyValue
     /// query params encoding
     public var query: URLQuery? { values.query }
@@ -83,7 +83,7 @@ extension PlistParams:ExpressibleByArrayLiteral,ExpressibleByDictionaryLiteral{
         }))
     }
 }
-public struct HTTPBody{
+public struct HTTPBody:Sendable{
     public let data:Data
     public let contentType:String
     public static func xml(_ data:Data)->HTTPBody{

@@ -21,7 +21,7 @@ import MobileCoreServices
 /// - https://www.ietf.org/rfc/rfc2388.txt
 /// - https://www.ietf.org/rfc/rfc2045.txt
 /// - https://www.w3.org/TR/html401/interact/forms.html#h-17.13
-public final class FormData {
+public final class FormData:@unchecked Sendable {
     // MARK: - Helper Types
 
     enum EncodingCharacters {
@@ -77,7 +77,7 @@ public final class FormData {
     public let memoryLimit: UInt64
 
     /// The `Content-Type` header value containing the boundary used to generate the `multipart/form-data`.
-    public lazy var contentType: String = "multipart/form-data; boundary=\(self.boundary)"
+    public var contentType: String { "multipart/form-data; boundary=\(self.boundary)" }
 
     /// The content length of all body parts used to generate the `multipart/form-data` not including the boundaries.
     public var contentLength: UInt64 { bodyParts.reduce(0) { $0 + $1.bodyContentLength } }

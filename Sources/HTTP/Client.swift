@@ -21,9 +21,9 @@ public protocol HTTPDelegate:AnyObject{
     func client(_ client:HTTPClient,shouldUpdate config:URLSessionConfiguration)
     ///  request hook function
     ///
-    /// - You can change the request params by return .rewrite(request).
-    /// - You can retrun a response directly by retrun .response(resp).
-    /// - You can return a error directly  by throws a new error.
+    /// - Change the request params by return .rewrite(request).
+    /// - Retrun a response directly by retrun .response(resp).
+    /// - Return a error directly  by throws a new error.
     ///
     /// - Throws: return an error directly
     /// - Parameters:
@@ -35,8 +35,8 @@ public protocol HTTPDelegate:AnyObject{
     func client(_ client:HTTPClient,modifyResult result:Result<Data,Error>,request:URLRequest,response:HTTPURLResponse)async throws->Result<Data,Error>
     /// responsse hook function
     ///
-    /// - You can change the response by return new resultt
-    /// - You can change the error by throws a new error.
+    /// - Change the response by return new resultt
+    /// - Change the error by throws a new error.
     /// - By default  hold the result
     ///
     /// - Throws: A new  Error to be response
@@ -50,8 +50,8 @@ public protocol HTTPDelegate:AnyObject{
     func client(_ client:HTTPClient,filterRequest request:URLRequest)throws->FilterResult
     /// .responsse hook function
     ///
-    /// - You can return a new request for restart
-    /// - You can change the error by throws a new error.
+    /// - Return a new request for restart
+    /// - Change the error by throws a new error.
     /// - By default  hold the result
     ///
     /// - Throws: A new  Error to be response
@@ -126,9 +126,13 @@ extension HTTPClient{
     ///
     @discardableResult
     public func request<R:Request>(_ req:R)->Response<R.Result>{
-        return self.request(req.url,params: req.parameters,options: req.options).then { data in
+        let resp = _request(req.url,params: req.parameters,options: req.options).then { data in
             try await req.decode(data)
         }
+        if debug{
+            resp.debugPrint()
+        }
+        return resp
     }
     ///
     /// Send a simple data request directly
@@ -141,26 +145,13 @@ extension HTTPClient{
     ///
     @discardableResult
     public func request(_  url:String,params:HTTPParams?=nil,options:Options?=nil)->Response<Data>{
-        guard let url = URL(url, baseURL: options?.baseURL ?? self.baseURL) else{
-            return .init(HTTPError.invalidURL(url: url))
-        }
-        let method = options?.method ?? self.method
-        let timeout = options?.timeout ?? self.timeout
-        var headers = self.headers
-        if let h = options?.headers {
-            headers.merge(h)
-        }
-        let req = URLRequest.create(url, method: method,params: params, headers: headers, timeout: timeout)
-        let resp = self.session.request(req,retrier: options?.retrier ?? self.retrier).map{
-            guard let delegate = self.delegate else { return $0 }
-            return try await delegate.client(self, modifyResult: $0, request: $1, response: $2)
-        }
+        let resp = _request(url,params: params,options: options)
         if debug{
             resp.debugPrint()
         }
         return resp
     }
-    
+   
     /// Send an file upload  request
     ///
     /// - SeeAlso: `upload(_:to:paramse:headers:timeout:)`
@@ -170,16 +161,21 @@ extension HTTPClient{
     ///
     @discardableResult
     public func upload<R:UploadRequest>(_ req:R)->Response<R.Result>{
+        let resp:Response<R.Result>
         switch req.upload{
         case .file(let fileURL):
-            return self.upload(fileURL, to: req.url,query: req.query,options: req.options).then {data in
+            resp = _upload(fileURL, to: req.url,query: req.query,options: req.options).then {data in
                 try await req.decode(data)
             }
         case .form(let data):
-            return self.upload(data, to: req.url,query: req.query,options: req.options).then {data in
+            resp = _upload(data, to: req.url,query: req.query,options: req.options).then {data in
                 try await req.decode(data)
             }
         }
+        if debug{
+            resp.debugPrint()
+        }
+        return resp
     }
     /// Upload an local file  or form data to server.
     ///
@@ -195,34 +191,14 @@ extension HTTPClient{
         _ file:URL,
         to url:String,
         query:URLQuery?=nil,
-        options:Options?=nil)->Response<Data>
-    {
-        guard let url = URL(url, baseURL:options?.baseURL ?? self.baseURL) else{
-            return .init(HTTPError.invalidURL(url: url))
-        }
-        var h = self.headers
-        if let headers = options?.headers{
-            h.merge(headers)
-        }
-        if h[.contentType] == nil{
-            h[.contentType] = "application/octet-stream"
-        }
-        let resp = self.session.upload(
-            url,
-            file: file,
-            query: query,
-            headers: h,
-            timeout: options?.timeout ?? self.timeout,
-            fileManager: fileManager).map{
-                guard let delegate = self.delegate else { return $0 }
-                return try await delegate.client(self, modifyResult: $0, request: $1, response: $2)
-            }
+        options:Options?=nil)->Response<Data>{
+        let resp = _upload(file, to: url,query: query,options: options)
         if debug{
             resp.debugPrint()
         }
         return resp
-            
     }
+   
     /// Upload an local file to server.
     ///
     /// - Parameters:
@@ -238,31 +214,14 @@ extension HTTPClient{
         _ data:FormData,
         to url:String,
         query:URLQuery?=nil,
-        options:Options?=nil)->Response<Data>
-    {
-        guard let url = URL(url, baseURL: options?.baseURL ?? self.baseURL) else{
-            return .init(HTTPError.invalidURL(url: url))
-        }
-        var h = self.headers
-        if let headers = options?.headers{
-            h.merge(headers)
-        }
-        let resp = self.session.upload(
-            url,
-            form: data,
-            query: query,
-            headers: h,
-            timeout: options?.timeout ?? self.timeout,
-            fileManager: fileManager).map{
-                guard let delegate = self.delegate else { return $0 }
-                return try await delegate.client(self, modifyResult: $0, request: $1, response: $2)
-            }
+        options:Options?=nil)->Response<Data>{
+        let resp = _upload(data, to: url,query: query,options: options)
         if debug{
             resp.debugPrint()
         }
         return resp
-            
     }
+   
     /// Send an file download  request
     ///
     /// - SeeAlso: `download(_:params:headers:timeout:transfer:)`
@@ -290,8 +249,7 @@ extension HTTPClient{
         _ url:String,
         query:URLQuery?=nil,
         options:Options?=nil,
-        transfer: FileTransfer? = nil)->Response<String>
-    {
+        transfer: FileTransfer? = nil)->Response<String>{
         guard let url = URL(url, baseURL: options?.baseURL ?? self.baseURL) else{
             return .init(HTTPError.invalidURL(url: url))
         }
@@ -331,6 +289,76 @@ extension HTTPClient{
         return resp
     }
 }
+extension HTTPClient{
+    private func _request(_  url:String,params:HTTPParams?=nil,options:Options?=nil)->Response<Data>{
+        guard let url = URL(url, baseURL: options?.baseURL ?? self.baseURL) else{
+            return .init(HTTPError.invalidURL(url: url))
+        }
+        let method = options?.method ?? self.method
+        let timeout = options?.timeout ?? self.timeout
+        var headers = self.headers
+        if let h = options?.headers {
+            headers.merge(h)
+        }
+        let req = URLRequest.create(url, method: method,params: params, headers: headers, timeout: timeout)
+        return self.session.request(req,retrier: options?.retrier ?? self.retrier).map{
+            guard let delegate = self.delegate else { return $0 }
+            return try await delegate.client(self, modifyResult: $0, request: $1, response: $2)
+        }
+    }
+    private func _upload(
+        _ file:URL,
+        to url:String,
+        query:URLQuery?=nil,
+        options:Options?=nil)->Response<Data>
+    {
+        guard let url = URL(url, baseURL:options?.baseURL ?? self.baseURL) else{
+            return .init(HTTPError.invalidURL(url: url))
+        }
+        var h = self.headers
+        if let headers = options?.headers{
+            h.merge(headers)
+        }
+        if h[.contentType] == nil{
+            h[.contentType] = "application/octet-stream"
+        }
+        return self.session.upload(
+            url,
+            file: file,
+            query: query,
+            headers: h,
+            timeout: options?.timeout ?? self.timeout,
+            fileManager: fileManager).map{
+                guard let delegate = self.delegate else { return $0 }
+                return try await delegate.client(self, modifyResult: $0, request: $1, response: $2)
+            }
+            
+    }
+    private func _upload(
+        _ data:FormData,
+        to url:String,
+        query:URLQuery?=nil,
+        options:Options?=nil)->Response<Data>
+    {
+        guard let url = URL(url, baseURL: options?.baseURL ?? self.baseURL) else{
+            return .init(HTTPError.invalidURL(url: url))
+        }
+        var h = self.headers
+        if let headers = options?.headers{
+            h.merge(headers)
+        }
+        return self.session.upload(
+            url,
+            form: data,
+            query: query,
+            headers: h,
+            timeout: options?.timeout ?? self.timeout,
+            fileManager: fileManager).map{
+                guard let delegate = self.delegate else { return $0 }
+                return try await delegate.client(self, modifyResult: $0, request: $1, response: $2)
+            }
+    }
+}
 extension URL{
     init?(_ url:String,baseURL:URL?){
         if url.hasPrefix("http"){
@@ -349,7 +377,7 @@ public enum FilterResult{
     /// return a response directly
     case response(Result<Data,Swift.Error>)
 }
-public struct Options{
+public struct Options:Sendable{
     ///overwrite the global baseURL
     public var baseURL:URL?
     /// overwrite the global method settings

@@ -18,7 +18,7 @@ public enum HTTPError:Swift.Error{
     case invalidDownloadFile
 }
 ///HTTP request methods
-public enum Method:String{
+public enum Method:String,Sendable{
     case get = "GET"
     case put = "PUT"
     case head = "HEAD"

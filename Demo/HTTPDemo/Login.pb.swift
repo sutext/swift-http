@@ -29,7 +29,6 @@ public struct LoginParams {
   /// username
   public var username: String = String()
 
-  /// 用户id
   public var password: String = String()
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
@@ -37,13 +36,11 @@ public struct LoginParams {
   public init() {}
 }
 
-/// 用户位置
 public struct LoginInfo {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  /// 用户id
   public var userID: Int64 = 0
 
   /// access token

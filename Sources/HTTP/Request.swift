@@ -19,7 +19,7 @@ public protocol Request{
     func decode(_ data:Data)async throws ->Result
 }
 
-public enum Upload{
+public enum Upload:Sendable{
     case file(fileURL:URL)
     case form(data:FormData)
 }

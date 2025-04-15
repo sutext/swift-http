@@ -89,7 +89,7 @@ public struct Response<Value:Sendable>:Sendable{
         task?.cancel()
     }
     public func debugPrint(){
-        promise.finally{ result in
+        promise.finally{
             guard let task = self.task else{
                 return
             }
@@ -99,7 +99,7 @@ public struct Response<Value:Sendable>:Sendable{
             [Request Body]: \(task.bodyDesc)
             [Request Headers]: \(JSON(task.request?.allHTTPHeaderFields))
             [Response Duration]: \(task.duration ?? 0)s
-            [Response Result]: \(result)
+            [Response Result]: \($0)
             [Response Status]: \(task.statusCode ?? 0)
             [Response Headers]: \(JSON(task.response?.allHeaderFields))
             -----------------------DEUBG   END--------------------------
@@ -107,6 +107,7 @@ public struct Response<Value:Sendable>:Sendable{
         }
     }
 }
+
 extension HTTPTask{
     var bodyDesc:String{
         guard let data = request?.httpBody else{

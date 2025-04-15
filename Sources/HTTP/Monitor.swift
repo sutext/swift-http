@@ -8,7 +8,7 @@
 import Network
 import Foundation
 
-public class Network{
+public final class Network:Sendable{
     private static let monitor:NWPathMonitor = NWPathMonitor()
     private static let notify:NotificationCenter = .init()
     private static let queue:DispatchQueue = .init(label: "SwiftHTTP.monitor")
