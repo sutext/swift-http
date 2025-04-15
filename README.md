@@ -13,7 +13,7 @@
 
 #### Swift Package Manager
 
-You can use [The Swift Package Manager](https://swift.org/package-manager) to install `swift-promise` by adding the proper description to your `Package.swift` file:
+You can use [The Swift Package Manager](https://swift.org/package-manager) to install `swift-http` by adding the proper description to your `Package.swift` file:
 
 ```swift
 // swift-tools-version:5.8
@@ -52,24 +52,6 @@ class Client:HTTPClient, HTTPDelegate,@unchecked Sendable{
     }
 }
 
-
-struct JSONRequest:Request,ExpressibleByStringLiteral{
-    var url: String{ path }
-    var options: Options? = .init()
-    var parameters:HTTPParams?{ params }
-    
-    let path: String
-    var params:JSON = [:]
-    init(path: String) {
-        self.path = path
-    }
-    func decode(_ data: Data) async throws -> JSON {
-        try JSON.parse(data)
-    }
-    init(stringLiteral value: StringLiteralType) {
-        self.init(path: value)
-    }
-}
 protocol Model{
     init(_ json:JSON)throws
 }
