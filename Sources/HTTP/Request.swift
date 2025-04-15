@@ -18,7 +18,28 @@ public protocol Request{
     /// model convert method
     func decode(_ data:Data)async throws ->Result
 }
-
+///Standardized JSON data  Request
+public struct JSONRequest:Request,Sendable{
+    public var url: String
+    public var options: Options?
+    public var params:JSONParams
+    public init(url: String, options: Options? = nil, params: JSONParams = [:]) {
+        self.url = url
+        self.options = options
+        self.params = params
+    }
+    public var parameters:HTTPParams?{
+        params
+    }
+    public func decode(_ data: Data) async throws -> JSON {
+        try JSON.parse(data)
+    }
+}
+extension JSONRequest:ExpressibleByStringLiteral{
+    public init(stringLiteral value: String) {
+        self.init(url: value)
+    }
+}
 public enum Upload:Sendable{
     case file(fileURL:URL)
     case form(data:FormData)

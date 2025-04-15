@@ -16,25 +16,6 @@ extension Client:HTTPDelegate{
         .useDefault
     }
 }
-
-
-struct JSONRequest:Request,ExpressibleByStringLiteral{
-    var url: String{ path }
-    var options: Options? = .init()
-    var parameters:HTTPParams?{ params }
-    
-    let path: String
-    var params:JSON = [:]
-    init(path: String) {
-        self.path = path
-    }
-    func decode(_ data: Data) async throws -> JSON {
-        try JSON.parse(data)
-    }
-    init(stringLiteral value: StringLiteralType) {
-        self.init(path: value)
-    }
-}
 protocol Model{
     init(_ json:JSON)throws
 }
@@ -113,6 +94,13 @@ final class HttpTests: XCTestCase {
         let base = "https://accounts.google.com/"
         let data = try await client.request("/.well-known/openid-configuration",options: .get(base: base)).wait()
         let json = try JSON.parse(data)
+        let config = try GoogleOidcConfig(json)
+        XCTAssertNotNil(config.issuer)
+    }
+    func testGet3() async throws {
+        var req:JSONRequest = "https://accounts.google.com/.well-known/openid-configuration"
+        req.options = .get()
+        let json = try await client.request(req).wait()
         let config = try GoogleOidcConfig(json)
         XCTAssertNotNil(config.issuer)
     }
