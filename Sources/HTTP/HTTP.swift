@@ -11,14 +11,14 @@ import Foundation
 
 ///HTTP request Errors
 public enum HTTPError:Swift.Error{
-    case invalidURL(url:String)
-    case invalidStatus(code:Int)
-    case invalidResponse(resp:URLResponse?)
-    case invalidResponseData
-    case invalidDownloadFile
+    case invalidURL(String? = nil) // invalid url when encode URLRequest
+    case invalidStatus(Int) // invalid http status in response
+    case invalidResponse(URLResponse? = nil) // invalid resoponse
+    case invalidResult // invalid data modle when decode response to `Request.Result`
+    case downloadFileNotFound // can not found the download file 
 }
 ///HTTP request methods
-public enum Method:String,Sendable{
+@frozen public enum Method:String,Sendable{
     case get = "GET"
     case put = "PUT"
     case head = "HEAD"
@@ -29,7 +29,7 @@ public enum Method:String,Sendable{
     case connect = "CONNECT"
     case options = "OPTIONS"
 }
-public struct Headers :Sendable{
+@frozen public struct Headers :Sendable{
     public enum Field:String {
         case accept             = "Accept"
         case acceptCharset      = "Accept-Charset"

@@ -23,9 +23,11 @@ extension LoginParams:HTTPParams{}
 
 class PBRequest<Req:Message&HTTPParams,Resp:Message>:Request{
     let url: String
-    var options: Options? = .post()
     var params:Req = .init()
-    var parameters: HTTPParams?{ params }
+    var options:Options = .post()
+    func encode() -> HTTPParams? {
+        params
+    }
     func decode(_ data: Data) async throws -> Resp {
         try Resp.init(serializedBytes: data)
     }

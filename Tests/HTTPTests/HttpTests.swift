@@ -20,20 +20,20 @@ protocol Model{
     init(_ json:JSON)throws
 }
 struct ModelRequest<M:Model>:Request,ExpressibleByStringLiteral{
-    var url: String{ path }
-    var options: Options? = .init()
-    var parameters:HTTPParams?{ params }
-    
-    let path: String
-    var params:JSON = [:]
-    init(path: String) {
-        self.path = path
+    var url: String
+    var params: JSONParams = [:]
+    var options: Options = .get()
+    init(url: String) {
+        self.url = url
+    }
+    func encode() -> HTTPParams? {
+        params
     }
     func decode(_ data: Data) async throws -> M {
         try M(JSON.parse(data))
     }
     init(stringLiteral value: StringLiteralType) {
-        self.init(path: value)
+        self.init(url: value)
     }
 }
 struct GoogleOidcConfig:Model{
@@ -54,7 +54,7 @@ struct GoogleOidcConfig:Model{
     var id_token_signing_alg_values_supported:[String]
     init(_ json: JSON) throws {
         guard json != .null else{
-            throw HTTPError.invalidResponseData
+            throw HTTPError.invalidResult
         }
         issuer = json.issuer.string
         jwks_uri = json.jwks_uri.string
@@ -79,7 +79,6 @@ final class HttpTests: XCTestCase {
         var req:ModelRequest<GoogleOidcConfig> = "https://accounts.google.com/.well-known/openid-configuration"
         req.params.username = "hello"
         req.params.password = "xxxxx"
-        req.options?.method = .get
         let config = try await client.request(req).wait()
         XCTAssertNotNil(config.issuer)
     }
@@ -103,5 +102,11 @@ final class HttpTests: XCTestCase {
         let json = try await client.request(req).wait()
         let config = try GoogleOidcConfig(json)
         XCTAssertNotNil(config.issuer)
+    }
+    func testURL()async throws{
+        let str = "https://accounts.google.com/.well-known/openid-configuration?age=10&classmates%5B%5D=aa&classmates%5B%5D=bn&classmates%5B%5D=cc&classmates%5B%5D=1&isok=0&username=username"
+        if let items = URLComponents(string: str)?.queryItems{
+            print(items)
+        }
     }
 }

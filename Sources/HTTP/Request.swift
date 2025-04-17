@@ -9,26 +9,26 @@ import Foundation
 
 public protocol Request{
     associatedtype Result:Sendable
-    /// request url
-    var url: String{ get }
+    /// It can be a full URL or a relative URL
+    var url:String{ get }
     /// request options
-    var options: Options?{ get }
-    /// request params
-    var parameters: HTTPParams?{ get }
-    /// model convert method
+    var options:Options { get }
+    /// encode request data to http params
+    func encode()->HTTPParams?
+    /// decode response data to Result modle
     func decode(_ data:Data)async throws ->Result
 }
 ///Standardized JSON data  Request
 public struct JSONRequest:Request,Sendable{
     public var url: String
-    public var options: Options?
-    public var params:JSONParams
-    public init(url: String, options: Options? = nil, params: JSONParams = [:]) {
+    public var params: JSONParams
+    public var options: Options
+    public init(url: String, params: JSONParams = [:], options: Options = .get()) {
         self.url = url
-        self.options = options
         self.params = params
+        self.options = options
     }
-    public var parameters:HTTPParams?{
+    public func encode() -> HTTPParams?{
         params
     }
     public func decode(_ data: Data) async throws -> JSON {
@@ -40,7 +40,8 @@ extension JSONRequest:ExpressibleByStringLiteral{
         self.init(url: value)
     }
 }
-public enum Upload:Sendable{
+
+@frozen public enum Upload:Sendable{
     case file(fileURL:URL)
     case form(data:FormData)
 }
@@ -53,6 +54,7 @@ public protocol UploadRequest{
     /// upload content
     var upload:Upload{ get }
     /// request options
+    /// property `method` and property `retrier` will be ignore
     var options: Options?{ get }
     /// model convert method
     func decode(_ data:Data)async throws ->Result
@@ -64,6 +66,7 @@ public protocol DownloadRequest{
     /// url query parameters
     var query: URLQuery?{ get }
     /// download optiions
+    /// property `method` and property `retrier` will be ignore
     var options: Options?{ get }
     /// resolve download file location
     var transfer:FileTransfer?{ get }

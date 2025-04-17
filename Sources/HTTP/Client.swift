@@ -100,8 +100,6 @@ open class HTTPClient:@unchecked Sendable{
     public weak var delegate:HTTPDelegate?
     /// print debug log or not. override for custom
     public var debug:Bool = false
-    /// global http method `.get` .  Override it in  options
-    public var method:Method = .get
     /// global retryer  `nil` . Override it in  options
     public var retrier:Retrier? = nil
     /// global http headers `[:]`. Override it in  options
@@ -126,7 +124,7 @@ extension HTTPClient{
     ///
     @discardableResult
     public func request<R:Request>(_ req:R)->Response<R.Result>{
-        let resp = _request(req.url,params: req.parameters,options: req.options).then { data in
+        let resp = _request(req.url,params: req.encode(),options: req.options).then { data in
             try await req.decode(data)
         }
         if debug{
@@ -144,7 +142,7 @@ extension HTTPClient{
     /// - Returns: `Response<Data>` A handler for task control and progress control
     ///
     @discardableResult
-    public func request(_  url:String,params:HTTPParams?=nil,options:Options?=nil)->Response<Data>{
+    public func request(_  url:String,params:HTTPParams?=nil,options:Options = .get())->Response<Data>{
         let resp = _request(url,params: params,options: options)
         if debug{
             resp.debugPrint()
@@ -251,7 +249,7 @@ extension HTTPClient{
         options:Options?=nil,
         transfer: FileTransfer? = nil)->Response<String>{
         guard let url = URL(url, baseURL: options?.baseURL ?? self.baseURL) else{
-            return .init(HTTPError.invalidURL(url: url))
+            return .init(HTTPError.invalidURL(url))
         }
         var aheaders = self.headers
         if let newh = options?.headers {
@@ -290,18 +288,17 @@ extension HTTPClient{
     }
 }
 extension HTTPClient{
-    private func _request(_  url:String,params:HTTPParams?=nil,options:Options?=nil)->Response<Data>{
-        guard let url = URL(url, baseURL: options?.baseURL ?? self.baseURL) else{
-            return .init(HTTPError.invalidURL(url: url))
+    private func _request(_  url:String,params:HTTPParams?,options:Options)->Response<Data>{
+        guard let url = URL(url, baseURL: options.baseURL ?? self.baseURL) else{
+            return .init(HTTPError.invalidURL(url))
         }
-        let method = options?.method ?? self.method
-        let timeout = options?.timeout ?? self.timeout
+        let timeout = options.timeout ?? self.timeout
         var headers = self.headers
-        if let h = options?.headers {
+        if let h = options.headers {
             headers.merge(h)
         }
-        let req = URLRequest.create(url, method: method,params: params, headers: headers, timeout: timeout)
-        return self.session.request(req,retrier: options?.retrier ?? self.retrier).map{
+        let req = URLRequest.create(url, method: options.method,params: params, headers: headers, timeout: timeout)
+        return self.session.request(req,retrier: options.retrier ?? self.retrier).map{
             guard let delegate = self.delegate else { return $0 }
             return try await delegate.client(self, modifyResult: $0, request: $1, response: $2)
         }
@@ -313,7 +310,7 @@ extension HTTPClient{
         options:Options?=nil)->Response<Data>
     {
         guard let url = URL(url, baseURL:options?.baseURL ?? self.baseURL) else{
-            return .init(HTTPError.invalidURL(url: url))
+            return .init(HTTPError.invalidURL(url))
         }
         var h = self.headers
         if let headers = options?.headers{
@@ -341,7 +338,7 @@ extension HTTPClient{
         options:Options?=nil)->Response<Data>
     {
         guard let url = URL(url, baseURL: options?.baseURL ?? self.baseURL) else{
-            return .init(HTTPError.invalidURL(url: url))
+            return .init(HTTPError.invalidURL(url))
         }
         var h = self.headers
         if let headers = options?.headers{
@@ -377,11 +374,11 @@ public enum FilterResult{
     /// return a response directly
     case response(Result<Data,Swift.Error>)
 }
-public struct Options:Sendable{
+@frozen public struct Options:Sendable{
+    ///the request method
+    public var method:Method
     ///overwrite the global baseURL
     public var baseURL:URL?
-    /// overwrite the global method settings
-    public var method:Method?
     /// merge into global headers
     public var headers:[String:String]?
     /// overwrite global timeout settings
@@ -389,14 +386,14 @@ public struct Options:Sendable{
     /// overwrite the global retrier settings
     public var retrier:Retrier?
     public init(
-        _ method:Method?=nil,
+        _ method:Method,
         baseURL:URL?=nil,
         headers:[String:String]?=nil,
         timeout:TimeInterval?=nil,
         retrier:Retrier?=nil)
     {
-        self.baseURL = baseURL
         self.method = method
+        self.baseURL = baseURL
         self.retrier = retrier
         self.headers = headers
         self.timeout = timeout

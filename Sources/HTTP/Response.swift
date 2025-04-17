@@ -31,7 +31,7 @@ extension HTTPURLResponse{
         value(forHTTPHeaderField: field)
     }
 }
-public struct Response<Value:Sendable>:Sendable{
+@frozen public struct Response<Value:Sendable>:Sendable{
     private let promise:Promise<Value>
     /// The http task
     /// It will be nil when the request never been sent. At this case some error or some cached respone occurred

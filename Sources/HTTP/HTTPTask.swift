@@ -100,12 +100,12 @@ public class HTTPTask:@unchecked Sendable{
             return await self.retry(when: error)
         }
         guard let resp = response else {
-            let error = HTTPError.invalidResponse(resp: task.response)
+            let error = HTTPError.invalidResponse(task.response)
             self.error = error
             return await self.retry(when: error)
         }
         guard [200,204,205].contains(resp.statusCode) else {
-            let error = HTTPError.invalidStatus(code:resp.statusCode)
+            let error = HTTPError.invalidStatus(resp.statusCode)
             self.error = error
             return await self.retry(when: error)
         }
@@ -192,17 +192,17 @@ public class DownloadTask:HTTPTask,@unchecked Sendable{
             return await self.retry(when: error)
         }
         guard let resp = response else {
-            let error = HTTPError.invalidResponse(resp: task.response)
+            let error = HTTPError.invalidResponse(task.response)
             self.error = error
             return await self.retry(when: error)
         }
         guard [200,204,205].contains(resp.statusCode) else {
-            let error = HTTPError.invalidStatus(code:resp.statusCode)
+            let error = HTTPError.invalidStatus(resp.statusCode)
             self.error = error
             return await self.retry(when: error)
         }
         guard let location = self.fileURL?.absoluteString else {
-            let error = HTTPError.invalidDownloadFile
+            let error = HTTPError.downloadFileNotFound
             self.error = error
             return await retry(when: error)
         }

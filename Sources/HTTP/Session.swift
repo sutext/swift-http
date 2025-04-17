@@ -116,7 +116,7 @@ class Session:NSObject{
         self.add(req)
         return Response(req).then { data in
             guard let location = String(data:data,encoding: .utf8) else{
-                throw HTTPError.invalidDownloadFile
+                throw HTTPError.downloadFileNotFound
             }
             return location
         }
@@ -135,7 +135,7 @@ class Session:NSObject{
         self.add(req)
         return Response(req).then { data in
             guard let location = String(data:data,encoding: .utf8) else{
-                throw HTTPError.invalidDownloadFile
+                throw HTTPError.downloadFileNotFound
             }
             return location
         }

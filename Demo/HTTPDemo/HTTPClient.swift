@@ -17,10 +17,10 @@ class Client:HTTPClient, HTTPDelegate,@unchecked Sendable{
     }
     func client(_ client: HTTPClient, fillterRequest request: URLRequest) throws -> FilterResult {
         guard let str = request.url?.absoluteString else{
-            throw HTTPError.invalidURL(url: "")
+            throw HTTPError.invalidURL()
         }
         guard str.hasPrefix("http") else{
-            throw HTTPError.invalidURL(url: str)
+            throw HTTPError.invalidURL(str)
         }
         return .none
 //        var result = JSON([:])
@@ -30,50 +30,43 @@ class Client:HTTPClient, HTTPDelegate,@unchecked Sendable{
     }
 }
 
-
-struct JSONRequest:Request,ExpressibleByStringLiteral{
-    var url: String{ path }
-    var options: Options? = .init()
-    var parameters:HTTPParams?{ params }
-    
-    let path: String
-    var params:JSON = [:]
-    init(path: String) {
-        self.path = path
-    }
-    func decode(_ data: Data) async throws -> JSON {
-        try JSON.parse(data)
-    }
-    init(stringLiteral value: StringLiteralType) {
-        self.init(path: value)
-    }
-}
 protocol Model{
-    init(_ json:JSON)throws
+    init(_ data:Data)throws
 }
 struct ModelRequest<M:Model>:Request,ExpressibleByStringLiteral{
     var url: String{ path }
-    var options: Options? = .init()
-    var parameters:HTTPParams?{ params }
+    var options: Options = .get()
+    func encode() -> HTTPParams? {
+        params
+    }
     
     let path: String
-    var params:JSON = [:]
+    var params:JSONParams = [:]
     init(path: String) {
         self.path = path
     }
     func decode(_ data: Data) async throws -> M {
-        try M(JSON.parse(data))
+        try M(data)
     }
     init(stringLiteral value: StringLiteralType) {
         self.init(path: value)
     }
 }
 struct ConfigRequest:Request{
-    var options: Options?{ .get() }
-    var parameters: (any HTTPParams)? { nil }
+    var options: Options = .get()
     var url: String{ "https://accounts.google.com/.well-known/openid-configuration" }
+    var params:JSONParams = [:]
+    init() {
+        params.username = "username"
+        params.classmates = ["aa","bn","cc",true]
+        params.isok = false
+        params.age = 10
+    }
+    func encode() -> (any HTTPParams)? {
+        params
+    }
     func decode(_ data: Data) async throws -> GoogleOidcConfig {
-        try GoogleOidcConfig(JSON.parse(data))
+        try GoogleOidcConfig(data)
     }
 }
 struct GoogleOidcConfig:Model{
@@ -92,9 +85,10 @@ struct GoogleOidcConfig:Model{
     var code_challenge_methods_supported:[String]
     var token_endpoint_auth_methods_supported:[String]
     var id_token_signing_alg_values_supported:[String]
-    init(_ json: JSON) throws {
+    init(_ data: Data) throws {
+        let json = try JSON.parse(data)
         guard json != .null else{
-            throw HTTPError.invalidResponseData
+            throw HTTPError.invalidResult
         }
         issuer = json.issuer.string
         jwks_uri = json.jwks_uri.string

@@ -7,40 +7,66 @@
 
 import Foundation
 
+/// Description of http request parameters
+/// Resolve body and query
 public protocol HTTPParams:Sendable{
     /// http body data. Only exist in `post` `put` and so on
-    /// Only one of the `query` and `body` will be encode into the request
+    /// Only one of the `query` and `body` will be encoded into the ur request
     var body:HTTPBody?{ get }
-    /// http query string .Only exist in `get` `delete` `head` `conect`.
-    /// Only one of the `query` and `body` will be encode into the request
+    /// URL-Encoded query string like `?key1=value1&key2=value2&key3[]=value4&key3[]=value5`
+    /// Only exist in `get` `delete` `head` `conect`methods
+    /// Only one of the `query` and `body` will be encoded into the url request
     var query:URLQuery? { get }
-    /// query string  when `body` exist
+    /// URL-Encoded query string  even though `body` exist
     var bodyQuery:URLQuery? { get }
 }
 extension HTTPParams{
-    /// most time bodyQuery is nil
+    /// At most time the bodyQuery is nil
     public var bodyQuery:URLQuery? { nil }
 }
-
-///Use  application/json body
-public typealias JSONParams = JSON
-extension JSONParams:HTTPParams{
-    public var body: HTTPBody?{
-        guard let data = compactData else{
-            return nil
-        }
-        return .json(data)
-    }
-    public var query: URLQuery?{
-        guard let object else{
+///Standardized JSON Params params encoding
+@dynamicMemberLookup
+public struct JSONParams:HTTPParams{
+    private var json:JSON
+    /// query params encoding
+    public var query: URLQuery? {
+        guard let object = json.object else{
             return nil
         }
         return URLQuery(object)
     }
+    /// when application/json
+    public var body: HTTPBody? {
+        guard let data = json.compactData else{
+            return nil
+        }
+        return .json(data)
+    }
+    public init(_ json:JSON = [:]) {
+        self.json = json
+    }
+    public subscript(key:any JSONKey)->JSON{
+        get { json[key] }
+        set { json[key] = newValue}
+    }
+    public subscript(dynamicMember key:String)->JSON{
+        get { json[key] }
+        set { json[key] = newValue}
+    }
 }
-
+extension JSONParams:ExpressibleByArrayLiteral,ExpressibleByDictionaryLiteral{
+    public init(arrayLiteral elements: Any?...) {
+        self.json = .array(elements.map{ AnyValue($0) })
+    }
+    public init(dictionaryLiteral elements: (String,Any?)... ){
+        self.json = .object(elements.reduce(into: [:], {
+            $0[$1.0] = JSON($1.1)
+        }))
+    }
+}
 ///`URLQuery` is also an `HTTPParams`. Use application/x-www-form-urlencoded body
 public typealias URLParams = URLQuery
+
 extension URLParams:HTTPParams{
     public var body: HTTPBody? {
         guard let data = encode()?.data(using: .utf8) else{
@@ -51,38 +77,6 @@ extension URLParams:HTTPParams{
     public var query: URLQuery?{ self }
 }
 
-///Standardized Plist params encoding
-///
-public struct PlistParams:HTTPParams{
-    private var values:AnyValue
-    /// query params encoding
-    public var query: URLQuery? { values.query }
-    /// when application/plist
-    public var body: HTTPBody? {
-        guard let value = values.compactValue,
-              let data = try? PropertyListSerialization.data(fromPropertyList: value, format: .xml, options:.zero) else{
-            return nil
-        }
-        return .plist(data)
-    }
-    public init(_ value:AnyValue = [:]) {
-        self.values = value
-    }
-    public subscript(key:any JSONKey)->AnyValue{
-        get { values[key] }
-        set { values[key] = newValue}
-    }
-}
-extension PlistParams:ExpressibleByArrayLiteral,ExpressibleByDictionaryLiteral{
-    public init(arrayLiteral elements: Any?...) {
-        self.values = .array(elements.map{ AnyValue($0) })
-    }
-    public init(dictionaryLiteral elements: (String,Any?)... ){
-        self.values = .object(elements.reduce(into: [:], {
-            $0[$1.0] = AnyValue($1.1)
-        }))
-    }
-}
 public struct HTTPBody:Sendable{
     public let data:Data
     public let contentType:String

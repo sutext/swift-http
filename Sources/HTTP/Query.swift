@@ -22,7 +22,7 @@ import Foundation
 /// `boolNumeric` can be used to configure how boolean values are encoded. The default behavior is to encode
 /// `true` as 1 and `false` as 0.
 ///
-public struct URLQuery:Sendable{
+@frozen public struct URLQuery:Sendable{
     private var values:[String:AnyValue]
     private let boolNumeric:Bool
     private let arrayBrackets:Bool
@@ -48,13 +48,13 @@ public struct URLQuery:Sendable{
     /// Get the percent-escaped, URL encoded query string from the given key-value paiirs.
     public func encode()->String?{
         if values.isEmpty{ return nil }
-        var components: [(String, String)] = []
+        var components: [String] = []
         for key in values.keys.sorted(by: <) {
             let value = values[key]!
             components += encode(key, value: value)
         }
         if components.isEmpty { return nil }
-        return components.map { "\($0)=\($1)" }.joined(separator: "&")
+        return components.joined(separator: "&")
     }
     /// Creates a percent-escaped, URL encoded query string components from the given key-value pair recursively.
     ///
@@ -63,15 +63,15 @@ public struct URLQuery:Sendable{
     ///   - value: Value of the query component.
     ///
     /// - Returns: The percent-escaped, URL encoded query string components.
-    private func encode(_ key:String ,value:AnyValue) -> [(String, String)] {
-        var components: [(String, String)] = []
+    private func encode(_ key:String ,value:AnyValue) -> [String] {
+        var components: [String] = []
         switch value {
         case .bool(let bool):
-            components.append((escape(key), escape(encode(bool: bool))))
+            components.append("\(escape(key))=\(escape(encode(bool: bool)))")
         case .string(let string):
-            components.append((escape(key), escape("\(string)")))
+            components.append("\(escape(key))=\(escape("\(string)"))")
         case .number(let number):
-            components.append((escape(key), escape("\(number)")))
+            components.append("\(escape(key))=\(escape("\(number)"))")
         case .object(let object) :
             for (nestedKey, value) in object {
                 if case .null = value{ continue }

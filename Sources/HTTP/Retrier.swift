@@ -313,7 +313,7 @@ extension Retrier {
     }
 }
 extension Retrier {
-    public enum Policy:Equatable,Sendable{
+    @frozen public enum Policy:Equatable,Sendable{
         /// retry immediately
         case immediately
         case exponential(base:Int,scale:Double)
