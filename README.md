@@ -22,7 +22,7 @@ import PackageDescription
 let package = Package(
     name: "YOUR_PROJECT_NAME",
     dependencies: [
-        .package(url: "https://github.com/sutext/swift-http.git", from: "1.1.0"),
+        .package(url: "https://github.com/sutext/swift-http.git", from: "1.1.1"),
     ]
 )
 ```
@@ -30,54 +30,42 @@ let package = Package(
 ### Usage
 
 ```swift
-let net = Client()
-class Client:HTTPClient, HTTPDelegate,@unchecked Sendable{
+
+import HTTP
+
+class Client:HTTPClient,@unchecked Sendable{
     override init() {
         super.init()
         self.debug = true
         self.delegate = self
     }
-    func client(_ client: HTTPClient, fillterRequest request: URLRequest) throws -> FilterResult {
-        guard let str = request.url?.absoluteString else{
-            throw HTTPError.invalidURL()
-        }
-        guard str.hasPrefix("http") else{
-            throw HTTPError.invalidURL(str)
-        }
-        return .none
-//        var result = JSON([:])
-//        result.code = "ok"
-//        result.message = "test directly return"
-//        return .response(.success(result.rawData!))
+}
+extension Client:HTTPDelegate{
+    func client(_ client: HTTPClient, shouldUpdate config: URLSessionConfiguration) {
+        
+    }
+    func client(_ client: HTTPClient, task: URLSessionTask, didReceive challenge: Challenge) -> ChallengeResult {
+        .useDefault
     }
 }
-
 protocol Model{
     init(_ json:JSON)throws
 }
 struct ModelRequest<M:Model>:Request,ExpressibleByStringLiteral{
-    var url: String{ path }
-    var options: Options? = .init()
-    var parameters:HTTPParams?{ params }
-    
-    let path: String
-    var params:JSON = [:]
-    init(path: String) {
-        self.path = path
+    var url: String
+    var params: JSONParams = [:]
+    var options: Options = .get()
+    init(url: String) {
+        self.url = url
+    }
+    func encode() -> HTTPParams? {
+        params
     }
     func decode(_ data: Data) async throws -> M {
         try M(JSON.parse(data))
     }
     init(stringLiteral value: StringLiteralType) {
-        self.init(path: value)
-    }
-}
-struct ConfigRequest:Request{
-    var options: Options?{ .get() }
-    var parameters: (any HTTPParams)? { nil }
-    var url: String{ "https://accounts.google.com/.well-known/openid-configuration" }
-    func decode(_ data: Data) async throws -> GoogleOidcConfig {
-        try GoogleOidcConfig(JSON.parse(data))
+        self.init(url: value)
     }
 }
 struct GoogleOidcConfig:Model{
@@ -117,8 +105,42 @@ struct GoogleOidcConfig:Model{
         id_token_signing_alg_values_supported = json.id_token_signing_alg_values_supported.compactMap{ $1.string }
     }
 }
-
-let config = try await net.request(ConfigRequest()).wait()
-print(config)
+final class HttpTests: XCTestCase {
+    let client = Client()
+    func testGet() async throws {
+        var req:ModelRequest<GoogleOidcConfig> = "https://accounts.google.com/.well-known/openid-configuration"
+        req.params.username = "hello"
+        req.params.password = "xxxxx"
+        let config = try await client.request(req).wait()
+        XCTAssertNotNil(config.issuer)
+    }
+    func testGet1() async throws {
+        let url = "https://accounts.google.com/.well-known/openid-configuration"
+        let data = try await client.request(url,options: .get()).wait()
+        let json = try JSON.parse(data)
+        let config = try GoogleOidcConfig(json)
+        XCTAssertNotNil(config.issuer)
+    }
+    func testGet2() async throws {
+        let base = "https://accounts.google.com/"
+        let data = try await client.request("/.well-known/openid-configuration",options: .get(base: base)).wait()
+        let json = try JSON.parse(data)
+        let config = try GoogleOidcConfig(json)
+        XCTAssertNotNil(config.issuer)
+    }
+    func testGet3() async throws {
+        var req:JSONRequest = "https://accounts.google.com/.well-known/openid-configuration"
+        req.options = .get()
+        let json = try await client.request(req).wait()
+        let config = try GoogleOidcConfig(json)
+        XCTAssertNotNil(config.issuer)
+    }
+    func testURL()async throws{
+        let str = "https://accounts.google.com/.well-known/openid-configuration?age=10&classmates%5B%5D=aa&classmates%5B%5D=bn&classmates%5B%5D=cc&classmates%5B%5D=1&isok=0&username=username"
+        if let items = URLComponents(string: str)?.queryItems{
+            print(items)
+        }
+    }
+}
 
 ```
