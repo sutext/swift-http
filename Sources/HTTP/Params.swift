@@ -7,6 +7,30 @@
 
 import Foundation
 
+@frozen public struct HTTPBody:Sendable{
+    public let data:Data
+    public let mimeType:MimeType
+    public static func xml(_ data:Data)->HTTPBody{
+        .init(data: data, mimeType: "application/xml")
+    }
+    public static func json(_ data:Data)->HTTPBody{
+        .init(data: data, mimeType: "application/json")
+    }
+    public static func plist(_ data:Data)->HTTPBody{
+        .init(data: data, mimeType: "application/plist")
+    }
+    public static func protobuf(_ data:Data)->HTTPBody{
+        .init(data: data, mimeType: "application/x-protobuf")
+    }
+    public static func urlencoded(_ data:Data)->HTTPBody{
+        .init(data: data, mimeType: "application/x-www-form-urlencoded; charset=utf-8")
+    }
+    public static func formData(_ form:FormData)->HTTPBody?{
+        guard let data = try? form.encode() else { return nil }
+        return .init(data: data, mimeType: form.contentType)
+    }
+}
+
 /// Description of http request parameters
 /// Resolve body and query
 public protocol HTTPParams:Sendable{
@@ -26,7 +50,7 @@ extension HTTPParams{
 }
 ///Standardized JSON Params params encoding
 @dynamicMemberLookup
-public struct JSONParams:HTTPParams{
+@frozen public struct JSONParams:HTTPParams{
     private var json:JSON
     /// query params encoding
     public var query: URLQuery? {
@@ -66,7 +90,6 @@ extension JSONParams:ExpressibleByArrayLiteral,ExpressibleByDictionaryLiteral{
 }
 ///`URLQuery` is also an `HTTPParams`. Use application/x-www-form-urlencoded body
 public typealias URLParams = URLQuery
-
 extension URLParams:HTTPParams{
     public var body: HTTPBody? {
         guard let data = encode()?.data(using: .utf8) else{
@@ -77,26 +100,14 @@ extension URLParams:HTTPParams{
     public var query: URLQuery?{ self }
 }
 
-public struct HTTPBody:Sendable{
-    public let data:Data
-    public let contentType:String
-    public static func xml(_ data:Data)->HTTPBody{
-        .init(data: data, contentType: "application/xml")
-    }
-    public static func json(_ data:Data)->HTTPBody{
-        .init(data: data, contentType: "application/json")
-    }
-    public static func plist(_ data:Data)->HTTPBody{
-        .init(data: data, contentType: "application/plist")
-    }
-    public static func protobuf(_ data:Data)->HTTPBody{
-        .init(data: data, contentType: "application/x-protobuf")
-    }
-    public static func urlencoded(_ data:Data)->HTTPBody{
-        .init(data: data, contentType: "application/x-www-form-urlencoded; charset=utf-8")
+///Standardized Form Params params encoding
+@frozen public struct FormParams:HTTPParams{
+    public let form: FormData = .init()
+    public var query: URLQuery?
+    public var body: HTTPBody?{
+        .formData(form)
     }
 }
-
 
 extension URLRequest{
     mutating func addQuery(_ query:URLQuery){
@@ -131,7 +142,7 @@ extension URLRequest{
                 req.addQuery(query)
             }
             if let body = params.body{
-                req.setHeader(body.contentType, for: .contentType)
+                req.setHeader(body.mimeType, for: .contentType)
                 req.httpBody = body.data
             }
         }

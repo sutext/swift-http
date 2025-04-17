@@ -9,6 +9,39 @@ import Foundation
 #if canImport(MobileCoreServices)
 import MobileCoreServices
 #endif
+
+///- HTTP Media Types (MIME Types) Overview
+///- MIME (Multipurpose Internet Mail Extensions) types, also known as media types, are standardized labels used in HTTP to specify the format and nature of transmitted data.
+///They are declared in the Content-Type header to ensure proper parsing and handling by clients or servers.
+///- Text
+///`text/html; charset=utf-8`: HTML documents
+///`text/plain; charset=utf-8`: Plain text
+///`text/css; charset=utf-8`: CSS stylesheets
+///`text/xml; charset=utf-8`: XML data
+///- Images
+///`image/jpeg`: JPEG images
+///`image/png`: PNG images
+///`image/gif`: GIF images
+///`image/svg+xml`: SVG vector graphics
+///- Audio/Video
+///`audio/mpeg`: MP3 audio
+///`video/mp4`: MP4 video
+///`audio/ogg` `video/ogg`: Ogg audio/video
+///`video/webm`: WebM video
+///- Documents
+///`application/pdf:` PDF files
+///`application/msword:` Microsoft Word documents
+///`application/vnd.ms-excel`: Excel files
+///- Data Formats
+///`application/json`: JSON data
+///`application/xml`: XML data
+///`application/octet-stream`: Binary streams (e.g., file downloads)
+///- Forms
+///`multipart/form-data`: File uploads in HTML forms
+///`application/x-www-form-urlencoded; charset=utf-8`: Standard form submissions
+public typealias MimeType = String
+
+
 /// Constructs `multipart/form-data` for uploads within an HTTP or HTTPS body. There are currently two ways to encode
 /// multipart form data. The first way is to encode the data directly in memory. This is very efficient, but can lead
 /// to memory issues if the dataset is too large. The second way is designed for larger datasets and will write all the
@@ -36,13 +69,11 @@ public final class FormData:@unchecked Sendable {
         static func randomBoundary() -> String {
             let first = UInt32.random(in: UInt32.min...UInt32.max)
             let second = UInt32.random(in: UInt32.min...UInt32.max)
-
             return String(format: "SwiftHTTP.boundary.%08x%08x", first, second)
         }
 
         static func boundaryData(forBoundaryType boundaryType: BoundaryType, boundary: String) -> Data {
             let boundaryText: String
-
             switch boundaryType {
             case .initial:
                 boundaryText = "--\(boundary)\(EncodingCharacters.crlf)"
@@ -51,7 +82,6 @@ public final class FormData:@unchecked Sendable {
             case .final:
                 boundaryText = "\(EncodingCharacters.crlf)--\(boundary)--\(EncodingCharacters.crlf)"
             }
-
             return Data(boundaryText.utf8)
         }
     }
@@ -129,7 +159,7 @@ public final class FormData:@unchecked Sendable {
     ///   - name:     Name to associate with the `Data` in the `Content-Disposition` HTTP header.
     ///   - fileName: Filename to associate with the `Data` in the `Content-Disposition` HTTP header.
     ///   - mimeType: MIME type to associate with the data in the `Content-Type` HTTP header.
-    public func append(_ data: Data, withName name: String, fileName: String? = nil, mimeType: String? = nil) {
+    public func append(_ data: Data, withName name: String, fileName: String? = nil, mimeType: MimeType? = nil) {
         let headers = contentHeaders(withName: name, fileName: fileName, mimeType: mimeType)
         let stream = InputStream(data: data)
         let length = UInt64(data.count)
@@ -179,7 +209,7 @@ public final class FormData:@unchecked Sendable {
     ///   - name:     Name to associate with the file content in the `Content-Disposition` HTTP header.
     ///   - fileName: Filename to associate with the file content in the `Content-Disposition` HTTP header.
     ///   - mimeType: MIME type to associate with the file content in the `Content-Type` HTTP header.
-    public func append(_ fileURL: URL, withName name: String, fileName: String, mimeType: String) {
+    public func append(_ fileURL: URL, withName name: String, fileName: String, mimeType: MimeType) {
         let headers = contentHeaders(withName: name, fileName: fileName, mimeType: mimeType)
 
         //============================================================
@@ -267,7 +297,7 @@ public final class FormData:@unchecked Sendable {
                        withLength length: UInt64,
                        name: String,
                        fileName: String,
-                       mimeType: String) {
+                       mimeType: MimeType) {
         let headers = contentHeaders(withName: name, fileName: fileName, mimeType: mimeType)
         append(stream, withLength: length, headers: headers)
     }
@@ -488,24 +518,23 @@ public final class FormData:@unchecked Sendable {
 
     // MARK: - Private - Mime Type
 
-    private func mimeType(forPathExtension pathExtension: String) -> String {
+    private func mimeType(forPathExtension pathExtension: String) -> MimeType {
         if
             let id = UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension, pathExtension as CFString, nil)?.takeRetainedValue(),
             let contentType = UTTypeCopyPreferredTagWithClass(id, kUTTagClassMIMEType)?.takeRetainedValue() {
             return contentType as String
         }
-
         return "application/octet-stream"
     }
 
     // MARK: - Private - Content Headers
 
-    private func contentHeaders(withName name: String, fileName: String? = nil, mimeType: String? = nil) -> Headers {
+    private func contentHeaders(withName name: String, fileName: String? = nil, mimeType: MimeType? = nil) -> Headers {
         var disposition = "form-data; name=\"\(name)\""
         if let fileName = fileName { disposition += "; filename=\"\(fileName)\"" }
 
         var headers: Headers = [.contentDisposition:disposition]
-        if let mimeType = mimeType {
+        if let mimeType {
             headers[.contentType] = mimeType
         }
         return headers
@@ -532,8 +561,9 @@ public final class FormData:@unchecked Sendable {
         bodyPartError = reason
     }
 }
+
 extension FormData{
-    public enum Result{
+    @frozen public enum Result{
         case data(Data)
         case file(URL)
     }
@@ -557,7 +587,7 @@ extension FormData{
     }
 }
 
-public enum FormError:Swift.Error {
+@frozen public enum FormError:Swift.Error {
     /// The `fileURL` provided for reading an encodable body part isn't a file `URL`.
     case bodyPartURLInvalid(url: URL)
     /// The filename of the `fileURL` provided has either an empty `lastPathComponent` or `pathExtension.

@@ -42,7 +42,7 @@ extension JSONRequest:ExpressibleByStringLiteral{
 }
 
 @frozen public enum Upload:Sendable{
-    case file(fileURL:URL)
+    case file(url:URL)
     case form(data:FormData)
 }
 public protocol UploadRequest{
