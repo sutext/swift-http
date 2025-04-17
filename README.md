@@ -22,7 +22,7 @@ import PackageDescription
 let package = Package(
     name: "YOUR_PROJECT_NAME",
     dependencies: [
-        .package(url: "https://github.com/sutext/swift-http.git", from: "1.0.0"),
+        .package(url: "https://github.com/sutext/swift-http.git", from: "1.1.0"),
     ]
 )
 ```
@@ -39,10 +39,10 @@ class Client:HTTPClient, HTTPDelegate,@unchecked Sendable{
     }
     func client(_ client: HTTPClient, fillterRequest request: URLRequest) throws -> FilterResult {
         guard let str = request.url?.absoluteString else{
-            throw HTTPError.invalidURL(url: "")
+            throw HTTPError.invalidURL()
         }
         guard str.hasPrefix("http") else{
-            throw HTTPError.invalidURL(url: str)
+            throw HTTPError.invalidURL(str)
         }
         return .none
 //        var result = JSON([:])
@@ -98,7 +98,7 @@ struct GoogleOidcConfig:Model{
     var id_token_signing_alg_values_supported:[String]
     init(_ json: JSON) throws {
         guard json != .null else{
-            throw HTTPError.invalidResponseData
+            throw HTTPError.unexpectedResult
         }
         issuer = json.issuer.string
         jwks_uri = json.jwks_uri.string
