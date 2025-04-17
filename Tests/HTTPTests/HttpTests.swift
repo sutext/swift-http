@@ -54,7 +54,7 @@ struct GoogleOidcConfig:Model{
     var id_token_signing_alg_values_supported:[String]
     init(_ json: JSON) throws {
         guard json != .null else{
-            throw HTTPError.invalidResult
+            throw HTTPError.unexpectedResult
         }
         issuer = json.issuer.string
         jwks_uri = json.jwks_uri.string

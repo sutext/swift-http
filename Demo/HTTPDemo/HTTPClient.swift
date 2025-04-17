@@ -88,7 +88,7 @@ struct GoogleOidcConfig:Model{
     init(_ data: Data) throws {
         let json = try JSON.parse(data)
         guard json != .null else{
-            throw HTTPError.invalidResult
+            throw HTTPError.unexpectedResult
         }
         issuer = json.issuer.string
         jwks_uri = json.jwks_uri.string

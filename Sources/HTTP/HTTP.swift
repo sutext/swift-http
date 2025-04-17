@@ -9,13 +9,13 @@ import Foundation
 @_exported import JSON
 @_exported import Promise
 
-///HTTP request Errors
-public enum HTTPError:Swift.Error{
+///HTTP  Errors
+@frozen public enum HTTPError:Swift.Error{
     case invalidURL(String? = nil) // invalid url when encode URLRequest
     case invalidStatus(Int) // invalid http status in response
     case invalidResponse(URLResponse? = nil) // invalid resoponse
-    case invalidResult // invalid data modle when decode response to `Request.Result`
-    case downloadFileNotFound // can not found the download file 
+    case unexpectedResult // unexpected data when decode response to `Request.Result`
+    case downloadFileNotFound // can not found the download file
 }
 ///HTTP request methods
 @frozen public enum Method:String,Sendable{
