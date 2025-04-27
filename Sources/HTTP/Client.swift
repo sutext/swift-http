@@ -142,7 +142,7 @@ extension HTTPClient{
     /// - Returns: `Response<Data>` A handler for task control and progress control
     ///
     @discardableResult
-    public func request(_  url:String,params:HTTPParams?=nil,options:Options = .get())->Response<Data>{
+    public func request(url:String,params:HTTPParams?=nil,options:Options = .get())->Response<Data>{
         let resp = _request(url,params: params,options: options)
         if debug{
             resp.debugPrint()
