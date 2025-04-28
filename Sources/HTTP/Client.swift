@@ -189,8 +189,10 @@ extension HTTPClient{
         _ file:URL,
         to url:String,
         query:URLQuery?=nil,
-        options:Options?=nil)->Response<Data>{
-        let resp = _upload(file, to: url,query: query,options: options)
+        baseURL:URL?=nil,
+        headers:[String:String]?=nil,
+        timeout:TimeInterval?=nil)->Response<Data>{
+        let resp = _upload(file, to: url,query: query,baseURL: baseURL,headers: headers,timeout: timeout)
         if debug{
             resp.debugPrint()
         }
@@ -212,8 +214,10 @@ extension HTTPClient{
         _ data:FormData,
         to url:String,
         query:URLQuery?=nil,
-        options:Options?=nil)->Response<Data>{
-        let resp = _upload(data, to: url,query: query,options: options)
+        baseURL:URL?=nil,
+        headers:[String:String]?=nil,
+        timeout:TimeInterval?=nil)->Response<Data>{
+        let resp = _upload(data, to: url,query: query,baseURL: baseURL,headers: headers,timeout: timeout)
         if debug{
             resp.debugPrint()
         }
@@ -311,8 +315,7 @@ extension HTTPClient{
         query:URLQuery?=nil,
         baseURL:URL?=nil,
         headers:[String:String]?=nil,
-        timeout:TimeInterval?=nil,
-        options:Options?=nil)->Response<Data>
+        timeout:TimeInterval?=nil)->Response<Data>
     {
         guard let url = URL(url, baseURL: baseURL ?? self.baseURL) else{
             return .init(HTTPError.invalidURL(url))
