@@ -32,10 +32,11 @@ extension HTTPURLResponse{
     }
 }
 @frozen public struct Response<Value:Sendable>:Sendable{
-    private let promise:Promise<Value>
     /// The http task
     /// It will be nil when the request never been sent. At this case some error or some cached respone occurred
     public let task:HTTPTask?
+    /// promise for value response
+    public let promise:Promise<Value>
     init(_ value:Value,task: HTTPTask? = nil){
         self.promise = .init(value)
         self.task = task
