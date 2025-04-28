@@ -52,7 +52,7 @@ extension HTTPParams{
 @dynamicMemberLookup
 @frozen public struct JSONParams:HTTPParams{
     /// internal json conten
-    public private(set) var json:JSON
+    public var json:JSON
     /// query params encoding. Only effect in object
     public var query: URLQuery? {
         guard let object = json.object else{
@@ -80,8 +80,19 @@ extension HTTPParams{
     ///     params.key1 = "value1"
     ///     params.key2 = "value2"
     ///
-    public init(_ json:JSON = [:]) {
+    public init(){
+        self.json = [:]
+    }
+    public init(_ json:JSON) {
         self.json = json
+    }
+    public init(_ array:[Any?]) {
+        self.json = .array(array.map{ JSON($0) })
+    }
+    public init(_ object:[String:Any?]) {
+        self.json = .object(object.reduce(into: [:], {
+            $0[$1.0] = JSON($1.1)
+        }))
     }
     /// only effect in array
     public mutating func append(_ item:Any?){
@@ -89,6 +100,12 @@ extension HTTPParams{
             ary.append(JSON(item))
             self.json = .array(ary)
         }
+    }
+    public mutating func merge(_ other:JSONParams){
+        self.json.merge(from: other.json)
+    }
+    public mutating func merge(_ other:JSON){
+        self.json.merge(from: other)
     }
     /// subscript geter seter. Convenient for setting attributes
     ///
@@ -119,7 +136,7 @@ extension HTTPParams{
 }
 extension JSONParams:ExpressibleByArrayLiteral,ExpressibleByDictionaryLiteral{
     public init(arrayLiteral elements: Any?...) {
-        self.json = .array(elements.map{ AnyValue($0) })
+        self.json = .array(elements.map{ JSON($0) })
     }
     public init(dictionaryLiteral elements: (String,Any?)... ){
         self.json = .object(elements.reduce(into: [:], {
