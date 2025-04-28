@@ -22,6 +22,7 @@ import Foundation
 /// `boolNumeric` can be used to configure how boolean values are encoded. The default behavior is to encode
 /// `true` as 1 and `false` as 0.
 ///
+@dynamicMemberLookup
 @frozen public struct URLQuery:Sendable{
     private var values:[String:AnyValue]
     private let boolNumeric:Bool
@@ -37,13 +38,17 @@ import Foundation
         self.arrayBrackets = arrayBrackets
         self.boolNumeric = boolNumeric
     }
-    public init(_ values:[String:Any],arrayBrackets: Bool = true, boolNumeric: Bool = true) {
+    public init(_ values:[String:Any?],arrayBrackets: Bool = true, boolNumeric: Bool = true) {
         let values = AnyValue(values).objectValue
         self.init(values,arrayBrackets: arrayBrackets,boolNumeric: boolNumeric)
     }
-    public subscript(key:String)->AnyValue?{
+    public subscript(key:String)->Any?{
         get { values[key] }
-        set { values[key] = newValue}
+        set { values[key] = AnyValue(newValue)}
+    }
+    public subscript(dynamicMember key:String)->Any?{
+        get { values[key] }
+        set { values[key] = AnyValue(newValue)}
     }
     /// Get the percent-escaped, URL encoded query string from the given key-value paiirs.
     public func encode()->String?{
@@ -110,5 +115,14 @@ import Foundation
         let encodableDelimiters = CharacterSet(charactersIn: "\(generalDelimitersToEncode)\(subDelimitersToEncode)")
         let set = CharacterSet.urlQueryAllowed.subtracting(encodableDelimiters)
         return string.addingPercentEncoding(withAllowedCharacters: set) ?? string
+    }
+}
+extension URLQuery:ExpressibleByDictionaryLiteral{
+    public init(dictionaryLiteral elements: (String, Any?)...) {
+        self.boolNumeric = true
+        self.arrayBrackets = true
+        self.values = elements.reduce(into: [:], {
+            $0[$1.0] = JSON($1.1)
+        })
     }
 }
