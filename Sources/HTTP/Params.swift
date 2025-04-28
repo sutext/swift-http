@@ -51,8 +51,9 @@ extension HTTPParams{
 ///Standardized JSON Params params encoding
 @dynamicMemberLookup
 @frozen public struct JSONParams:HTTPParams{
-    private var json:JSON
-    /// query params encoding
+    /// internal json conten
+    public private(set) var json:JSON
+    /// query params encoding. Only effect in object
     public var query: URLQuery? {
         guard let object = json.object else{
             return nil
@@ -66,16 +67,54 @@ extension HTTPParams{
         }
         return .json(data)
     }
+    /// Create dictionary or array params. default is empty dic
+    ///
+    ///     // array params
+    ///     var params:JSONParams = [1,2,3]
+    ///     var params:JSONParams = []
+    ///     params.append(1)
+    ///     params.append(2)
+    ///
+    ///     // dic params
+    ///     var params:JSONParams = [:]
+    ///     params.key1 = "value1"
+    ///     params.key2 = "value2"
+    ///
     public init(_ json:JSON = [:]) {
         self.json = json
     }
-    public subscript(key:any JSONKey)->JSON{
-        get { json[key] }
-        set { json[key] = newValue}
+    /// only effect in array
+    public mutating func append(_ item:Any?){
+        if var ary = json.array{
+            ary.append(JSON(item))
+            self.json = .array(ary)
+        }
     }
-    public subscript(dynamicMember key:String)->JSON{
+    /// subscript geter seter. Convenient for setting attributes
+    ///
+    ///     var params:JSONParams = [:]
+    ///     params.["username"] = "jack"
+    ///     params.["password"] = "123456"
+    ///     params.["age"] = 20
+    ///     //When Getter ,this way of writing is recommended
+    ///     params.json.username.string // jack
+    ///
+    public subscript(key:any JSONKey)->Any?{
         get { json[key] }
-        set { json[key] = newValue}
+        set { json[key] = JSON(newValue)}
+    }
+    /// dynamicMember geter seter. Convenient for setting attributes
+    ///
+    ///     var params:JSONParams = [:]
+    ///     params.username = "jack"
+    ///     params.password = "123456"
+    ///     params.age = 20
+    ///     //When Getter ,this way of writing is recommended.
+    ///     params.json.username.string // jack
+    ///
+    public subscript(dynamicMember key:String)->Any?{
+        get { json[key] }
+        set { json[key] = JSON(newValue)}
     }
 }
 extension JSONParams:ExpressibleByArrayLiteral,ExpressibleByDictionaryLiteral{

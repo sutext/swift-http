@@ -82,7 +82,7 @@ extension HTTPURLResponse{
         try await promise.wait()
     }
     /// - SeeAlso `Promise.finally()`
-    public func finally(_ handler:@escaping @Sendable (Result<Value,Error>)->Void ){
+    public func finally(_ handler:@escaping @Sendable (Result<Value,Error>)async->Void ){
         promise.finally(handler)
     }
     public func cancel(){

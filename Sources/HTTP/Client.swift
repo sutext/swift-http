@@ -162,11 +162,11 @@ extension HTTPClient{
         let resp:Response<R.Result>
         switch req.upload{
         case .file(let fileURL):
-            resp = _upload(fileURL, to: req.url,query: req.query,options: req.options).then {data in
+            resp = _upload(fileURL, to: req.url,query: req.query,baseURL: req.baseURL,headers: req.headers,timeout: req.timeout).then {data in
                 try await req.decode(data)
             }
         case .form(let data):
-            resp = _upload(data, to: req.url,query: req.query,options: req.options).then {data in
+            resp = _upload(data, to: req.url,query: req.query,baseURL: req.baseURL,headers: req.headers,timeout: req.timeout).then {data in
                 try await req.decode(data)
             }
         }
@@ -229,7 +229,7 @@ extension HTTPClient{
     ///
     @discardableResult
     public func download<R:DownloadRequest>(_ req:R)->Response<String>{
-        self.download(req.url,query: req.query,options: req.options,transfer: req.transfer)
+        self.download(req.url,query: req.query,baseURL: req.baseURL,headers: req.headers,timeout: req.timeout,transfer: req.transfer)
     }
     /// Send a simple download  request
     ///
@@ -246,20 +246,22 @@ extension HTTPClient{
     public func download(
         _ url:String,
         query:URLQuery?=nil,
-        options:Options?=nil,
+        baseURL:URL?=nil,
+        headers:[String:String]?=nil,
+        timeout:TimeInterval?=nil,
         transfer: FileTransfer? = nil)->Response<String>{
-        guard let url = URL(url, baseURL: options?.baseURL ?? self.baseURL) else{
+        guard let url = URL(url, baseURL: baseURL ?? self.baseURL) else{
             return .init(HTTPError.invalidURL(url))
         }
-        var aheaders = self.headers
-        if let newh = options?.headers {
-            aheaders.merge(newh)
+        var h = self.headers
+        if let headers {
+            h.merge(headers)
         }
         let resp = self.session.download(
             url,
             query: query,
-            headers: aheaders,
-            timeout: options?.timeout ?? self.timeout,
+            headers: h,
+            timeout: timeout ?? self.timeout,
             fileManager: fileManager,
             transfer: transfer)
         if debug{
@@ -307,13 +309,16 @@ extension HTTPClient{
         _ file:URL,
         to url:String,
         query:URLQuery?=nil,
+        baseURL:URL?=nil,
+        headers:[String:String]?=nil,
+        timeout:TimeInterval?=nil,
         options:Options?=nil)->Response<Data>
     {
-        guard let url = URL(url, baseURL:options?.baseURL ?? self.baseURL) else{
+        guard let url = URL(url, baseURL: baseURL ?? self.baseURL) else{
             return .init(HTTPError.invalidURL(url))
         }
         var h = self.headers
-        if let headers = options?.headers{
+        if let headers{
             h.merge(headers)
         }
         if h[.contentType] == nil{
@@ -324,7 +329,7 @@ extension HTTPClient{
             file: file,
             query: query,
             headers: h,
-            timeout: options?.timeout ?? self.timeout,
+            timeout: timeout ?? self.timeout,
             fileManager: fileManager).map{
                 guard let delegate = self.delegate else { return $0 }
                 return try await delegate.client(self, modifyResult: $0, request: $1, response: $2)
@@ -335,13 +340,16 @@ extension HTTPClient{
         _ data:FormData,
         to url:String,
         query:URLQuery?=nil,
+        baseURL:URL?=nil,
+        headers:[String:String]?=nil,
+        timeout:TimeInterval?=nil,
         options:Options?=nil)->Response<Data>
     {
-        guard let url = URL(url, baseURL: options?.baseURL ?? self.baseURL) else{
+        guard let url = URL(url, baseURL: baseURL ?? self.baseURL) else{
             return .init(HTTPError.invalidURL(url))
         }
         var h = self.headers
-        if let headers = options?.headers{
+        if let headers{
             h.merge(headers)
         }
         return self.session.upload(
@@ -349,7 +357,7 @@ extension HTTPClient{
             form: data,
             query: query,
             headers: h,
-            timeout: options?.timeout ?? self.timeout,
+            timeout: timeout ?? self.timeout,
             fileManager: fileManager).map{
                 guard let delegate = self.delegate else { return $0 }
                 return try await delegate.client(self, modifyResult: $0, request: $1, response: $2)

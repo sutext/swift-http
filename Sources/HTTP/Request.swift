@@ -53,9 +53,12 @@ public protocol UploadRequest{
     var query: URLQuery?{ get }
     /// upload content
     var upload:Upload{ get }
-    /// request options
-    /// property `method` and property `retrier` will be ignore
-    var options: Options?{ get }
+    ///overwrite the global baseURL
+    var baseURL:URL?{ get }
+    /// merge into global headers
+    var headers:[String:String]? { get }
+    /// overwrite global timeout settings
+    var timeout:TimeInterval? { get }
     /// model convert method
     func decode(_ data:Data)async throws ->Result
 }
@@ -65,9 +68,12 @@ public protocol DownloadRequest{
     var url: String{ get }
     /// url query parameters
     var query: URLQuery?{ get }
-    /// download optiions
-    /// property `method` and property `retrier` will be ignore
-    var options: Options?{ get }
+    ///overwrite the global baseURL
+    var baseURL:URL?{ get }
+    /// merge into global headers
+    var headers:[String:String]? { get }
+    /// overwrite global timeout settings
+    var timeout:TimeInterval? { get }
     /// resolve download file location
     var transfer:FileTransfer?{ get }
 
