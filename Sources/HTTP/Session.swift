@@ -22,9 +22,9 @@ class Session:NSObject{
         return session
     }()
     weak var client:HTTPClient!
-    func request(_ req:URLRequest, retrier:Retrier? = nil)->Response<Data>{
-        var urlreq = req
+    func request(_ req:URLRequest, retrier:Retrier?)->Response<Data>{
         do {
+            var urlreq = req
             let fr = try self.client.delegate?.client(client, filterRequest: urlreq)
             switch fr{
             case .response(let resp):
@@ -34,24 +34,22 @@ class Session:NSObject{
             default:
                 break
             }
+            let task = self.session.dataTask(with: urlreq)
+            let req = HTTPTask(task,session: self,retrier: retrier)
+            self.add(req)
+            return .init(req)
         } catch {
             return .init(error)
         }
-        let task = self.session.dataTask(with: urlreq)
-        let req = HTTPTask(task,session: self,retrier: retrier)
-        self.add(req)
-        return .init(req)
     }
     func upload(
-        _ url:URL,
         file:URL,
-        query:URLQuery?,
-        headers:Headers?,
-        timeout:TimeInterval? = nil,
-        fileManager:FileManager = .default)->Response<Data>
+        request:URLRequest,
+        retrier:Retrier?,
+        fileManager:FileManager)->Response<Data>
     {
         do {
-            var urlreq = URLRequest.query(url,method: .post,query: query, headers: headers, timeout: timeout)
+            var urlreq = request
             let fr = try self.client.delegate?.client(client, filterRequest: urlreq)
             switch fr{
             case .response(let resp):
@@ -62,7 +60,7 @@ class Session:NSObject{
                 break
             }
             let task = self.session.uploadTask(with: urlreq, fromFile: file)
-            let req = UploadTask(task,session: self,fileManager: fileManager)
+            let req = UploadTask(task,session: self,retrier: retrier,fileManager: fileManager)
             self.add(req)
             return .init(req)
         } catch {
@@ -70,17 +68,14 @@ class Session:NSObject{
         }
     }
     func upload(
-        _ url:URL,
         form:FormData,
-        query:URLQuery?,
-        headers:Headers?,
-        timeout:TimeInterval? = nil,
-        fileManager:FileManager = .default)->Response<Data>
+        request:URLRequest,
+        retrier:Retrier?,
+        fileManager:FileManager)->Response<Data>
     {
         do {
-            var urlreq = URLRequest.query(url,method: .post,query: query, headers: headers, timeout: timeout)
-            urlreq.setHeader(form.contentType, for: .contentType)
-            let fr = try self.client.delegate?.client(client, filterRequest: urlreq)
+            var urlreq = request
+            let fr = try self.client.delegate?.client(client, filterRequest: request)
             switch fr{
             case .response(let resp):
                 return .init(resp)
@@ -94,10 +89,10 @@ class Session:NSObject{
             switch upload {
             case .data(let data):
                 let task = self.session.uploadTask(with: urlreq, from: data)
-                req = UploadTask(task,session: self,fileManager: form.fileManager)
+                req = UploadTask(task,session: self,retrier: retrier,fileManager: form.fileManager)
             case .file(let fileURL):
                 let task = self.session.uploadTask(with: urlreq, fromFile: fileURL)
-                req = UploadTask(task,session: self,fileManager: form.fileManager)
+                req = UploadTask(task,session: self,retrier: retrier,fileManager: form.fileManager)
                 req.tempFile = fileURL
             }
             self.add(req)
@@ -106,13 +101,20 @@ class Session:NSObject{
             return .init(error)
         }
     }
+    @available(iOS 17.0,watchOS 10.0,macOS 14.0,tvOS 17.0, *)
+    func upload(resume data:Data,fileManager:FileManager)->Response<Data>{
+        let task = self.session.uploadTask(withResumeData: data)
+        let req = UploadTask(task, session: self,retrier: nil, fileManager: fileManager)
+        self.add(req)
+        return .init(req)
+    }
     func download(
         resume data: Data,
-        fileManager:FileManager = .default,
-        transfer:FileTransfer? = nil)->Response<String>
+        fileManager:FileManager,
+        transfer:FileTransfer?)->Response<String>
     {
         let task = self.session.downloadTask(withResumeData: data)
-        let req = DownloadTask(task,session: self, transfer: transfer, fileManager: fileManager)
+        let req = DownloadTask(task,session: self,retrier: nil,transfer: transfer, fileManager: fileManager)
         self.add(req)
         return Response(req).then { data in
             guard let location = String(data:data,encoding: .utf8) else{
@@ -122,16 +124,13 @@ class Session:NSObject{
         }
     }
     func download(
-        _ url: URL,
-        query:URLQuery?,
-        headers:Headers?,
-        timeout:TimeInterval?,
+        request:URLRequest,
+        retrier:Retrier?,
         fileManager:FileManager,
-        transfer:FileTransfer? = nil)->Response<String>
+        transfer:FileTransfer?)->Response<String>
     {
-        let urlreq = URLRequest.query(url,method: .get,query: query, headers: headers, timeout: timeout)
-        let task = self.session.downloadTask(with: urlreq)
-        let req = DownloadTask(task,session: self, transfer: transfer, fileManager: fileManager)
+        let task = self.session.downloadTask(with: request)
+        let req = DownloadTask(task,session: self,retrier: retrier ,transfer: transfer, fileManager: fileManager)
         self.add(req)
         return Response(req).then { data in
             guard let location = String(data:data,encoding: .utf8) else{

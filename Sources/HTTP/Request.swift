@@ -19,11 +19,11 @@ public protocol Request{
     func decode(_ data:Data)async throws ->Result
 }
 ///Standardized JSON data  Request
-public struct JSONRequest:Request,Sendable{
+@frozen public struct JSONRequest:Request,Sendable{
     public var url: String
     public var params: JSONParams
     public var options: Options
-    public init(url: String, params: JSONParams = [:], options: Options = .get()) {
+    public init(_ url: String, params: JSONParams = [:], options: Options = .get()) {
         self.url = url
         self.params = params
         self.options = options
@@ -37,7 +37,7 @@ public struct JSONRequest:Request,Sendable{
 }
 extension JSONRequest:ExpressibleByStringLiteral{
     public init(stringLiteral value: String) {
-        self.init(url: value)
+        self.init(value)
     }
 }
 
@@ -53,12 +53,8 @@ public protocol UploadRequest{
     var query: URLQuery?{ get }
     /// upload content
     var upload:Upload{ get }
-    ///overwrite the global baseURL
-    var baseURL:URL?{ get }
-    /// merge into global headers
-    var headers:[String:String]? { get }
-    /// overwrite global timeout settings
-    var timeout:TimeInterval? { get }
+    /// upload options
+    var options:Options{ get }
     /// model convert method
     func decode(_ data:Data)async throws ->Result
 }
@@ -68,12 +64,8 @@ public protocol DownloadRequest{
     var url: String{ get }
     /// url query parameters
     var query: URLQuery?{ get }
-    ///overwrite the global baseURL
-    var baseURL:URL?{ get }
-    /// merge into global headers
-    var headers:[String:String]? { get }
-    /// overwrite global timeout settings
-    var timeout:TimeInterval? { get }
+    /// download options
+    var options:Options{ get }
     /// resolve download file location
     var transfer:FileTransfer?{ get }
 

@@ -19,7 +19,7 @@ public protocol HTTPDelegate:AnyObject{
     ///    - config:The internal default session config.
     ///    
     func client(_ client:HTTPClient,shouldUpdate config:URLSessionConfiguration)
-    ///  request hook function
+    ///  A request hook function
     ///
     /// - Change the request params by return .rewrite(request).
     /// - Retrun a response directly by retrun .response(resp).
@@ -33,11 +33,10 @@ public protocol HTTPDelegate:AnyObject{
     /// - Note: All download tasks do not require filter
     ///
     func client(_ client:HTTPClient,modifyResult result:Result<Data,Error>,request:URLRequest,response:HTTPURLResponse)async throws->Result<Data,Error>
-    /// responsse hook function
+    /// A responsse hook function
     ///
     /// - Change the response by return new resultt
     /// - Change the error by throws a new error.
-    /// - By default  hold the result
     ///
     /// - Throws: A new  Error to be response
     /// - Parameters:
@@ -48,20 +47,19 @@ public protocol HTTPDelegate:AnyObject{
     /// - Note: All download tasks do not require verification
     ///
     func client(_ client:HTTPClient,filterRequest request:URLRequest)throws->FilterResult
-    /// .responsse hook function
+    /// A responsse hook function
     ///
     /// - Return a new request for restart
-    /// - Change the error by throws a new error.
-    /// - By default  hold the result
+    /// - Return `nil` for not restart
     ///
     /// - Throws: A new  Error to be response
     /// - Parameters:
     ///    - request: The original request
     ///    - error: The original error
-    /// - Returns: A new `URLRequest` to be restart
+    /// - Returns: A new `URLRequest` to be restart.
     /// - Note: All download tasks do not require retry mechanism
     ///
-    func client(_ client:HTTPClient,restartRequest request:URLRequest,error:Error)async throws->URLRequest
+    func client(_ client:HTTPClient,restartRequest request:URLRequest,error:Error)async->URLRequest?
     
     /// Resolve the URLAuthenticationChallenge for the task.
     ///
@@ -79,8 +77,8 @@ public extension HTTPDelegate{
     func client(_ client: HTTPClient, filterRequest request: URLRequest) throws -> FilterResult {
         .none
     }
-    func client(_ client: HTTPClient, restartRequest request: URLRequest, error: any Error) async throws -> URLRequest {
-        throw error
+    func client(_ client: HTTPClient, restartRequest request: URLRequest, error: any Error) async -> URLRequest? {
+        nil
     }
     func client(_ client: HTTPClient, task: URLSessionTask, didReceive challenge: Challenge) -> ChallengeResult {
         .useDefault
@@ -162,11 +160,11 @@ extension HTTPClient{
         let resp:Response<R.Result>
         switch req.upload{
         case .file(let fileURL):
-            resp = _upload(fileURL, to: req.url,query: req.query,baseURL: req.baseURL,headers: req.headers,timeout: req.timeout).then {data in
+            resp = _upload(fileURL, to: req.url,query: req.query,options: req.options).then {data in
                 try await req.decode(data)
             }
         case .form(let data):
-            resp = _upload(data, to: req.url,query: req.query,baseURL: req.baseURL,headers: req.headers,timeout: req.timeout).then {data in
+            resp = _upload(data, to: req.url,query: req.query,options: req.options).then {data in
                 try await req.decode(data)
             }
         }
@@ -188,11 +186,9 @@ extension HTTPClient{
     public func upload(
         _ file:URL,
         to url:String,
-        query:URLQuery?=nil,
-        baseURL:URL?=nil,
-        headers:[String:String]?=nil,
-        timeout:TimeInterval?=nil)->Response<Data>{
-        let resp = _upload(file, to: url,query: query,baseURL: baseURL,headers: headers,timeout: timeout)
+        query:URLQuery? = nil,
+        options:Options = .post())->Response<Data>{
+        let resp = _upload(file, to: url,query: query,options: options)
         if debug{
             resp.debugPrint()
         }
@@ -213,17 +209,28 @@ extension HTTPClient{
     public func upload(
         _ data:FormData,
         to url:String,
-        query:URLQuery?=nil,
-        baseURL:URL?=nil,
-        headers:[String:String]?=nil,
-        timeout:TimeInterval?=nil)->Response<Data>{
-        let resp = _upload(data, to: url,query: query,baseURL: baseURL,headers: headers,timeout: timeout)
+        query:URLQuery? = nil,
+        options:Options = .post())->Response<Data>{
+        let resp = _upload(data, to: url,query: query,options: options)
         if debug{
             resp.debugPrint()
         }
         return resp
     }
-   
+    /// Creates an upload task from a resume data blob. Requires the server to support the latest resumable uploads
+    /// Internet-Draft from the HTTP Working Group, found at
+    /// https://datatracker.ietf.org/doc/draft-ietf-httpbis-resumable-upload/
+    /// - If resuming from an upload file, the file must still exist and be unmodified. If the upload cannot be successfully
+    /// resumed, URLSession:task:didCompleteWithError: will be called.
+    /// - The resume data from the `URLError.uploadTaskResumeData` or `HTTPTask.cancel(resumer:)` must be save before yet.
+    ///
+    /// - Parameter data: Resume data blob from an incomplete upload, such as data returned by the cancelByProducingResumeData: method.
+    /// - Returns: A new session upload task, or nil if the resumeData is invalid.
+    @available(iOS 17.0,watchOS 10.0,macOS 14.0,tvOS 17.0, *)
+    @discardableResult
+    func upload(resume data:Data)->Response<Data>{
+        self.session.upload(resume: data, fileManager: fileManager)
+    }
     /// Send an file download  request
     ///
     /// - SeeAlso: `download(_:params:headers:timeout:transfer:)`
@@ -233,7 +240,7 @@ extension HTTPClient{
     ///
     @discardableResult
     public func download<R:DownloadRequest>(_ req:R)->Response<String>{
-        self.download(req.url,query: req.query,baseURL: req.baseURL,headers: req.headers,timeout: req.timeout,transfer: req.transfer)
+        self.download(req.url,query: req.query,options: req.options, transfer: req.transfer)
     }
     /// Send a simple download  request
     ///
@@ -250,22 +257,20 @@ extension HTTPClient{
     public func download(
         _ url:String,
         query:URLQuery?=nil,
-        baseURL:URL?=nil,
-        headers:[String:String]?=nil,
-        timeout:TimeInterval?=nil,
-        transfer: FileTransfer? = nil)->Response<String>{
-        guard let url = URL(url, baseURL: baseURL ?? self.baseURL) else{
+        options:Options = .get(),
+        transfer:FileTransfer? = nil)->Response<String>{
+        guard let url = URL(url, baseURL: options.baseURL ?? self.baseURL) else{
             return .init(HTTPError.invalidURL(url))
         }
-        var h = self.headers
-        if let headers {
-            h.merge(headers)
+        let timeout = options.timeout ?? self.timeout
+        var headers = self.headers
+        if let h = options.headers {
+            headers.merge(h)
         }
+        let urlreq = URLRequest.query(url,method: options.method,query: query, headers: headers, timeout: timeout)
         let resp = self.session.download(
-            url,
-            query: query,
-            headers: h,
-            timeout: timeout ?? self.timeout,
+            request: urlreq,
+            retrier: options.retrier,
             fileManager: fileManager,
             transfer: transfer)
         if debug{
@@ -274,9 +279,9 @@ extension HTTPClient{
         return resp
     }
     /// Send a resume download request
-    /// - Note: If `transfer` is not specified, the download will be moved to a temporary location determined by Airmey. The file will not be deleted until the system purges the temporary files.
+    /// - Note: If `transfer` is not specified, the download will be moved to a temporary location determined by SwiftHTTP. The file will not be deleted until the system purges the temporary files.
     /// - Parameters:
-    ///    - data: The resume data from a previously cancelled download request
+    ///    - data: The resume data from `URLError.downloadTaskResumeData` or `HTTPTask.cancel(resumer:)`
     ///    - transfer: A closure used to determine how and where the downloaded file should be moved.
     ///    - completion: The data request completion call back
     /// - Returns: `Response<String>` A handler for task control and progress control. Response.Value is location of downloaded file
@@ -313,26 +318,24 @@ extension HTTPClient{
         _ file:URL,
         to url:String,
         query:URLQuery?=nil,
-        baseURL:URL?=nil,
-        headers:[String:String]?=nil,
-        timeout:TimeInterval?=nil)->Response<Data>
+        options:Options = .post())->Response<Data>
     {
-        guard let url = URL(url, baseURL: baseURL ?? self.baseURL) else{
+        guard let url = URL(url, baseURL: options.baseURL ?? self.baseURL) else{
             return .init(HTTPError.invalidURL(url))
         }
-        var h = self.headers
-        if let headers{
-            h.merge(headers)
+        let timeout = options.timeout ?? self.timeout
+        var headers = self.headers
+        if let h = options.headers {
+            headers.merge(h)
         }
-        if h[.contentType] == nil{
-            h[.contentType] = "application/octet-stream"
+        if headers[.contentType] == nil{
+            headers[.contentType] = "application/octet-stream"
         }
+        let urlreq = URLRequest.query(url,method: options.method,query: query, headers: headers, timeout: timeout)
         return self.session.upload(
-            url,
             file: file,
-            query: query,
-            headers: h,
-            timeout: timeout ?? self.timeout,
+            request: urlreq,
+            retrier: options.retrier,
             fileManager: fileManager).map{
                 guard let delegate = self.delegate else { return $0 }
                 return try await delegate.client(self, modifyResult: $0, request: $1, response: $2)
@@ -343,24 +346,22 @@ extension HTTPClient{
         _ data:FormData,
         to url:String,
         query:URLQuery?=nil,
-        baseURL:URL?=nil,
-        headers:[String:String]?=nil,
-        timeout:TimeInterval?=nil,
-        options:Options?=nil)->Response<Data>
+        options:Options = .post())->Response<Data>
     {
-        guard let url = URL(url, baseURL: baseURL ?? self.baseURL) else{
+        guard let url = URL(url, baseURL: options.baseURL ?? self.baseURL) else{
             return .init(HTTPError.invalidURL(url))
         }
-        var h = self.headers
-        if let headers{
-            h.merge(headers)
+        let timeout = options.timeout ?? self.timeout
+        var headers = self.headers
+        if let h = options.headers {
+            headers.merge(h)
         }
+        headers[.contentType] = data.contentType
+        let urlreq = URLRequest.query(url,method: options.method,query: query, headers: headers, timeout: timeout)
         return self.session.upload(
-            url,
             form: data,
-            query: query,
-            headers: h,
-            timeout: timeout ?? self.timeout,
+            request: urlreq,
+            retrier: options.retrier,
             fileManager: fileManager).map{
                 guard let delegate = self.delegate else { return $0 }
                 return try await delegate.client(self, modifyResult: $0, request: $1, response: $2)
@@ -384,43 +385,6 @@ public enum FilterResult{
     case replace(URLRequest)
     /// return a response directly
     case response(Result<Data,Swift.Error>)
-}
-@frozen public struct Options:Sendable{
-    ///the request method
-    public var method:Method
-    ///overwrite the global baseURL
-    public var baseURL:URL?
-    /// merge into global headers
-    public var headers:[String:String]?
-    /// overwrite global timeout settings
-    public var timeout:TimeInterval?
-    /// overwrite the global retrier settings
-    public var retrier:Retrier?
-    public init(
-        _ method:Method,
-        baseURL:URL?=nil,
-        headers:[String:String]?=nil,
-        timeout:TimeInterval?=nil,
-        retrier:Retrier?=nil)
-    {
-        self.method = method
-        self.baseURL = baseURL
-        self.retrier = retrier
-        self.headers = headers
-        self.timeout = timeout
-    }
-    public static func get(base:String? = nil,headers:[String:String]?=nil,timeout:TimeInterval? = nil,retrier:Retrier?=nil)->Options{
-        .init(.get,baseURL: base==nil ? nil : URL(string: base!),headers: headers,timeout: timeout,retrier: retrier)
-    }
-    public static func put(base:String? = nil,headers:[String:String]?=nil,timeout:TimeInterval? = nil,retrier:Retrier?=nil)->Options{
-        .init(.put,baseURL: base==nil ? nil : URL(string: base!),headers: headers,timeout: timeout,retrier: retrier)
-    }
-    public static func post(base:String? = nil,headers:[String:String]?=nil,timeout:TimeInterval? = nil,retrier:Retrier?=nil)->Options{
-        .init(.post,baseURL: base==nil ? nil : URL(string: base!),headers: headers,timeout: timeout,retrier: retrier)
-    }
-    public static func delete(base:String? = nil,headers:[String:String]?=nil,timeout:TimeInterval? = nil,retrier:Retrier?=nil)->Options{
-        .init(.delete,baseURL: base==nil ? nil : URL(string: base!),headers: headers,timeout: timeout,retrier: retrier)
-    }
 }
 public typealias Challenge = URLAuthenticationChallenge
 public enum ChallengeResult{

@@ -12,7 +12,7 @@ import Foundation
 ///HTTP  Errors
 @frozen public enum HTTPError:Swift.Error{
     case invalidURL(String? = nil) // invalid url when encode URLRequest
-    case invalidStatus(Int) // invalid http status in response
+    case invalidStatus(code:Int,debug:String? = nil) // invalid http status in response
     case invalidResponse(URLResponse? = nil) // invalid resoponse
     case unexpectedResult // unexpected data when decode response to `Request.Result`
     case downloadFileNotFound // can not found the download file
@@ -123,5 +123,43 @@ extension RandomAccessCollection where Element == String {
             let quality = 1.0 - (Double(index) * 0.1)
             return "\(encoding);q=\(quality)"
         }.joined(separator: ", ")
+    }
+}
+@frozen public struct Options:Sendable{
+    ///the request method
+    public var method:Method
+    ///overwrite the global baseURL
+    public var baseURL:URL?
+    /// merge into global headers
+    public var headers:[String:String]?
+    /// overwrite global timeout settings
+    public var timeout:TimeInterval?
+    /// overwrite the global retrier settings
+    public var retrier:Retrier?
+    public init(
+        _ method:Method,
+        baseURL:URL?=nil,
+        headers:[String:String]?=nil,
+        timeout:TimeInterval?=nil,
+        retrier:Retrier?=nil)
+    {
+        self.method = method
+        self.baseURL = baseURL
+        self.retrier = retrier
+        self.headers = headers
+        self.timeout = timeout
+    }
+    
+    public static func get(base:String? = nil,headers:[String:String]?=nil,timeout:TimeInterval? = nil,retrier:Retrier?=nil)->Options{
+        .init(.get,baseURL: base==nil ? nil : URL(string: base!),headers: headers,timeout: timeout,retrier: retrier)
+    }
+    public static func put(base:String? = nil,headers:[String:String]?=nil,timeout:TimeInterval? = nil,retrier:Retrier?=nil)->Options{
+        .init(.put,baseURL: base==nil ? nil : URL(string: base!),headers: headers,timeout: timeout,retrier: retrier)
+    }
+    public static func post(base:String? = nil,headers:[String:String]?=nil,timeout:TimeInterval? = nil,retrier:Retrier?=nil)->Options{
+        .init(.post,baseURL: base==nil ? nil : URL(string: base!),headers: headers,timeout: timeout,retrier: retrier)
+    }
+    public static func delete(base:String? = nil,headers:[String:String]?=nil,timeout:TimeInterval? = nil,retrier:Retrier?=nil)->Options{
+        .init(.delete,baseURL: base==nil ? nil : URL(string: base!),headers: headers,timeout: timeout,retrier: retrier)
     }
 }

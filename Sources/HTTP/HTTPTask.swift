@@ -31,10 +31,7 @@ public class HTTPTask:@unchecked Sendable{
     /// some error if occured
     var error:Error?
     let promise:Promise<Data>
-    init(
-        _ task:URLSessionTask,
-        session:Session,
-        retrier:Retrier?){
+    init(_ task:URLSessionTask,session:Session,retrier:Retrier?){
         self.promise = .init()
         self.task = task
         self.session = session
@@ -73,6 +70,34 @@ public class HTTPTask:@unchecked Sendable{
     public func suspend()  {
         task.suspend()
     }
+    ///cancel the task with data resumer block
+    ///Only effect in `DownloadTask` and `UploadTask iOS17.0 or latter`
+    ///Use `client.download(resume:) `or `client.upload(resume:)` for continue
+    public func cancel(resumer:((Data?)->Void)? = nil){
+        if case .completed = task.state{
+            resumer?(nil)
+            return
+        }
+        guard let block = resumer else {
+            task.cancel()
+            return
+        }
+        switch task{
+        case let t as URLSessionUploadTask:
+            if #available(iOS 17.0,watchOS 10.0,macOS 14.0,tvOS 17.0, *) {
+                t.cancel(byProducingResumeData: block)
+            } else {
+                t.cancel()
+                block(nil)
+            }
+        case let t as URLSessionDownloadTask:
+            t.cancel(byProducingResumeData: block)
+        default:
+            task.cancel()
+            block(nil)
+        }
+    }
+
     func restart(req:URLRequest? = nil) {
         guard case .completed = state else{
             return
@@ -105,7 +130,7 @@ public class HTTPTask:@unchecked Sendable{
             return await self.retry(when: error)
         }
         guard [200,204,205].contains(resp.statusCode) else {
-            let error = HTTPError.invalidStatus(resp.statusCode)
+            let error = HTTPError.invalidStatus(code: resp.statusCode, debug: .init(data:self.data,encoding: .utf8))
             self.error = error
             return await self.retry(when: error)
         }
@@ -124,14 +149,11 @@ public class HTTPTask:@unchecked Sendable{
             self.done()
             return nil
         }
-        do {
-            let req = try await delegate.client(self.session.client, restartRequest: request, error: error)
-            return (0,req)
-        } catch  {
-            self.error = error
+        guard let req = await delegate.client(self.session.client, restartRequest: request, error: error) else{
             self.done()
             return nil
         }
+        return (0,req)
     }
     func done(){
         if let error{
@@ -145,15 +167,17 @@ public class HTTPTask:@unchecked Sendable{
     }
 }
 public class UploadTask:HTTPTask,@unchecked Sendable{
-    private var fileManager:FileManager
+    private let fileManager:FileManager
     /// temp file when multipart/form-data
     var tempFile:URL?
     init(
-        _ task: URLSessionTask,
+        _ task: URLSessionUploadTask,
         session:Session,
-        fileManager: FileManager) {
+        retrier:Retrier?,
+        fileManager: FileManager)
+    {
         self.fileManager = fileManager
-        super.init(task,session: session, retrier: nil)
+        super.init(task,session: session, retrier: retrier)
     }
     override func cleanup() {
         super.cleanup()
@@ -167,12 +191,13 @@ public typealias FileTransfer = (_ tempURL:URL,_ response:HTTPURLResponse?) -> U
 
 public class DownloadTask:HTTPTask,@unchecked Sendable{
     /// temp file url transfer
-    private var fileManager:FileManager
+    private let fileManager:FileManager
     private let transfer:FileTransfer
     private var fileURL:URL?
     init(
         _ task: URLSessionDownloadTask,
         session: Session,
+        retrier:Retrier?,
         transfer: FileTransfer?,
         fileManager:FileManager) {
         self.transfer = transfer ?? {url,_ in
@@ -181,7 +206,7 @@ public class DownloadTask:HTTPTask,@unchecked Sendable{
             return destination
         }
         self.fileManager = fileManager
-        super.init(task, session: session,retrier: nil)
+        super.init(task, session: session,retrier: retrier)
     }
     override func finish(_ error: Error?)async -> (TimeInterval,URLRequest?)? {
         guard case .completed = state else {
@@ -197,7 +222,7 @@ public class DownloadTask:HTTPTask,@unchecked Sendable{
             return await self.retry(when: error)
         }
         guard [200,204,205].contains(resp.statusCode) else {
-            let error = HTTPError.invalidStatus(resp.statusCode)
+            let error = HTTPError.invalidStatus(code: resp.statusCode, debug: .init(data:self.data,encoding: .utf8))
             self.error = error
             return await self.retry(when: error)
         }
@@ -222,23 +247,5 @@ public class DownloadTask:HTTPTask,@unchecked Sendable{
         } catch {
             self.error = error
         }
-    }
-    /// cancel dirctly without resume data
-    override public func cancel() {
-        self.cancel(resumer: nil)
-    }
-    /// cancel a donwload task and get the resume data
-    public func cancel(resumer:((Data?)->Void)?){
-        guard task.state != .completed else {
-            return
-        }
-        guard let task = task as? URLSessionDownloadTask else {
-            return
-        }
-        guard let block = resumer else {
-            task.cancel { _ in }
-            return
-        }
-        task.cancel(byProducingResumeData: block)
     }
 }

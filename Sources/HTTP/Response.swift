@@ -86,9 +86,6 @@ extension HTTPURLResponse{
     public func finally(_ handler:@escaping @Sendable (Result<Value,Error>)async->Void ){
         promise.finally(handler)
     }
-    public func cancel(){
-        task?.cancel()
-    }
     public func debugPrint(){
         promise.finally{
             guard let task = self.task else{
@@ -99,7 +96,7 @@ extension HTTPURLResponse{
             [\(task.method?.rawValue ?? "") URL]:  \(task.url ?? "None")
             [Request Body]: \(task.bodyDesc)
             [Request Headers]: \(JSON(task.request?.allHTTPHeaderFields))
-            [Response Duration]: \(task.duration ?? 0)s
+            [Request Duration]: \(task.duration ?? 0)s
             [Response Result]: \($0)
             [Response Status]: \(task.statusCode ?? 0)
             [Response Headers]: \(JSON(task.response?.allHeaderFields))
