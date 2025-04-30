@@ -380,15 +380,15 @@ extension URL{
         }
         if baseURL.hasSuffix("/"){
             if url.hasPrefix("/"){
-                self.init(string: "\(baseURL)\(url.dropFirst())")
+                self.init(string: baseURL + url.dropFirst())
             }else{
-                self.init(string: "\(baseURL)\(url)")
+                self.init(string: baseURL + url)
             }
         }else{
             if url.hasPrefix("/"){
-                self.init(string: "\(baseURL)\(url)")
+                self.init(string: baseURL + url)
             }else{
-                self.init(string: "\(baseURL)/\(url)")
+                self.init(string: baseURL + "/" + url)
             }
         }
     }
