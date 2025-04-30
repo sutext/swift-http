@@ -93,7 +93,7 @@ open class HTTPClient:@unchecked Sendable{
     public init() { session.client = self }
     private let session:Session = Session()
     /// global baseURL for all request
-    public var baseURL:URL? = nil
+    public var baseURL:String? = nil
     /// the http hocks and settings delegate
     public weak var delegate:HTTPDelegate?
     /// print debug log or not. override for custom
@@ -369,11 +369,27 @@ extension HTTPClient{
     }
 }
 extension URL{
-    init?(_ url:String,baseURL:URL?){
-        if url.hasPrefix("http"){
+    /// build url safely
+    init?(_ url:String,baseURL:String?){
+        if url.hasPrefix("http"){ //Absolute URL
             self.init(string: url)
+            return
+        }
+        guard let baseURL else{ //Relative URL must provide baseURL
+            return nil
+        }
+        if baseURL.hasSuffix("/"){
+            if url.hasPrefix("/"){
+                self.init(string: "\(baseURL)\(url.dropFirst())")
+            }else{
+                self.init(string: "\(baseURL)\(url)")
+            }
         }else{
-            self.init(string: url,relativeTo: baseURL)
+            if url.hasPrefix("/"){
+                self.init(string: "\(baseURL)\(url)")
+            }else{
+                self.init(string: "\(baseURL)/\(url)")
+            }
         }
     }
 }

@@ -129,20 +129,14 @@ extension RandomAccessCollection where Element == String {
     ///the request method
     public var method:Method
     ///overwrite the global baseURL
-    public var baseURL:URL?
+    public var baseURL:String?
     /// merge into global headers
     public var headers:[String:String]?
     /// overwrite global timeout settings
     public var timeout:TimeInterval?
     /// overwrite the global retrier settings
     public var retrier:Retrier?
-    public init(
-        _ method:Method,
-        baseURL:URL?=nil,
-        headers:[String:String]?=nil,
-        timeout:TimeInterval?=nil,
-        retrier:Retrier?=nil)
-    {
+    public init(_ method:Method,baseURL:String?=nil,headers:[String:String]?=nil,timeout:TimeInterval?=nil,retrier:Retrier?=nil){
         self.method = method
         self.baseURL = baseURL
         self.retrier = retrier
@@ -151,15 +145,15 @@ extension RandomAccessCollection where Element == String {
     }
     
     public static func get(base:String? = nil,headers:[String:String]?=nil,timeout:TimeInterval? = nil,retrier:Retrier?=nil)->Options{
-        .init(.get,baseURL: base==nil ? nil : URL(string: base!),headers: headers,timeout: timeout,retrier: retrier)
+        .init(.get,baseURL: base,headers: headers,timeout: timeout,retrier: retrier)
     }
     public static func put(base:String? = nil,headers:[String:String]?=nil,timeout:TimeInterval? = nil,retrier:Retrier?=nil)->Options{
-        .init(.put,baseURL: base==nil ? nil : URL(string: base!),headers: headers,timeout: timeout,retrier: retrier)
+        .init(.put,baseURL: base,headers: headers,timeout: timeout,retrier: retrier)
     }
     public static func post(base:String? = nil,headers:[String:String]?=nil,timeout:TimeInterval? = nil,retrier:Retrier?=nil)->Options{
-        .init(.post,baseURL: base==nil ? nil : URL(string: base!),headers: headers,timeout: timeout,retrier: retrier)
+        .init(.post,baseURL: base,headers: headers,timeout: timeout,retrier: retrier)
     }
     public static func delete(base:String? = nil,headers:[String:String]?=nil,timeout:TimeInterval? = nil,retrier:Retrier?=nil)->Options{
-        .init(.delete,baseURL: base==nil ? nil : URL(string: base!),headers: headers,timeout: timeout,retrier: retrier)
+        .init(.delete,baseURL: base,headers: headers,timeout: timeout,retrier: retrier)
     }
 }

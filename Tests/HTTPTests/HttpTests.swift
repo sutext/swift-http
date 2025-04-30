@@ -75,7 +75,23 @@ struct GoogleOidcConfig:Model{
 }
 final class HttpTests: XCTestCase {
     let client = Client()
+    func testURL(){
+        let full = "https://www.example.com/a/b/c/d"
+        let relatives = ["/c/d","c/d"]
+        let bases = ["https://www.example.com/a/b","https://www.example.com/a/b/"]
+        for r in relatives{
+            for base in bases {
+                XCTAssertEqual(URL(r,baseURL: base)?.absoluteString, full)
+            }
+        }
+        let base = "https://www.example.com/a/b"
+        XCTAssertEqual(URL(full,baseURL: base)?.absoluteString, full)
+        XCTAssertEqual(URL(full,baseURL: nil)?.absoluteString, full)
+        XCTAssertEqual(URL(string: full)?.absoluteString, full)
+
+    }
     func testGet() async throws {
+        
         var req:ModelRequest<GoogleOidcConfig> = "https://accounts.google.com/.well-known/openid-configuration"
         req.params.username = "hello"
         req.params.password = "xxxxx"
@@ -102,11 +118,5 @@ final class HttpTests: XCTestCase {
         let json = try await client.request(req).wait()
         let config = try GoogleOidcConfig(json)
         XCTAssertNotNil(config.issuer)
-    }
-    func testURL()async throws{
-        let str = "https://accounts.google.com/.well-known/openid-configuration?age=10&classmates%5B%5D=aa&classmates%5B%5D=bn&classmates%5B%5D=cc&classmates%5B%5D=1&isok=0&username=username"
-        if let items = URLComponents(string: str)?.queryItems{
-            print(items)
-        }
     }
 }
