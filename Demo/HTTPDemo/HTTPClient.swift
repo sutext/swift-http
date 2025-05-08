@@ -12,8 +12,11 @@ let net = Client()
 class Client:HTTPClient, HTTPDelegate,@unchecked Sendable{
     override init() {
         super.init()
-        self.debug = true
         self.delegate = self
+    }
+    override var debug: Bool { true }
+    override var headers: Headers{
+        ["userid":"xxxxx"]
     }
     func client(_ client: HTTPClient, fillterRequest request: URLRequest) throws -> FilterResult {
         guard let str = request.url?.absoluteString else{
@@ -23,10 +26,6 @@ class Client:HTTPClient, HTTPDelegate,@unchecked Sendable{
             throw HTTPError.invalidURL(str)
         }
         return .none
-//        var result = JSON([:])
-//        result.code = "ok"
-//        result.message = "test directly return"
-//        return .response(.success(result.rawData!))
     }
 }
 
@@ -36,10 +35,7 @@ protocol Model{
 struct ModelRequest<M:Model>:Request,ExpressibleByStringLiteral{
     var url: String{ path }
     var options: Options = .get()
-    func encode() -> HTTPParams? {
-        params
-    }
-    
+    var httpParams: (any HTTPParams)?{ params }
     let path: String
     var params:JSONParams = [:]
     init(path: String) {
@@ -62,9 +58,7 @@ struct ConfigRequest:Request{
         params.isok = false
         params.age = 10
     }
-    func encode() -> (any HTTPParams)? {
-        params
-    }
+    var httpParams: (any HTTPParams)?{ params }
     func decode(_ data: Data) async throws -> GoogleOidcConfig {
         try GoogleOidcConfig(data)
     }

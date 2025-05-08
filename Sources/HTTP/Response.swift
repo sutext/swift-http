@@ -89,18 +89,24 @@ extension HTTPURLResponse{
     public func debugPrint(){
         promise.finally{
             guard let task = self.task else{
+                Swift.print("""
+                -----------------------SwiftHTTP DEUBG-----------------------
+                [Request] The HTTPTask has never been created
+                [Response]: \($0)
+                -------------------------------------------------------------
+                """)
                 return
             }
             Swift.print("""
-            -----------------------DEUBG START--------------------------
-            [\(task.method?.rawValue ?? "") URL]:  \(task.url ?? "None")
+            -----------------------SwiftHTTP DEUBG------------------------
+            [\(task.method?.rawValue ?? "")]:  \(task.url ?? "null")
             [Request Body]: \(task.bodyDesc)
             [Request Headers]: \(JSON(task.request?.allHTTPHeaderFields))
             [Request Duration]: \(task.duration ?? 0)s
             [Response Result]: \($0)
             [Response Status]: \(task.statusCode ?? 0)
             [Response Headers]: \(JSON(task.response?.allHeaderFields))
-            -----------------------DEUBG   END--------------------------
+            --------------------------------------------------------------
             """)
         }
     }

@@ -25,9 +25,7 @@ class PBRequest<Req:Message&HTTPParams,Resp:Message>:Request{
     let url: String
     var params:Req = .init()
     var options:Options = .post()
-    func encode() -> HTTPParams? {
-        params
-    }
+    var httpParams: (any HTTPParams)?{ params }
     func decode(_ data: Data) async throws -> Resp {
         try Resp.init(serializedBytes: data)
     }

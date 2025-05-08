@@ -533,7 +533,7 @@ public final class FormData:@unchecked Sendable {
         var disposition = "form-data; name=\"\(name)\""
         if let fileName = fileName { disposition += "; filename=\"\(fileName)\"" }
 
-        var headers: Headers = [.contentDisposition:disposition]
+        var headers: Headers = [Headers.Field.contentDisposition.rawValue:disposition]
         if let mimeType {
             headers[.contentType] = mimeType
         }

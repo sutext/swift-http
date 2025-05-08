@@ -13,8 +13,8 @@ public protocol Request{
     var url:String{ get }
     /// request options
     var options:Options { get }
-    /// encode request data to http params
-    func encode()->HTTPParams?
+    /// get the http params
+    var httpParams:HTTPParams?{ get }
     /// decode response data to Result modle
     func decode(_ data:Data)async throws ->Result
 }
@@ -23,13 +23,11 @@ public protocol Request{
     public var url: String
     public var params: JSONParams
     public var options: Options
+    public var httpParams: HTTPParams?{ params }
     public init(_ url: String, params: JSONParams = [:], options: Options = .get()) {
         self.url = url
         self.params = params
         self.options = options
-    }
-    public func encode() -> HTTPParams?{
-        params
     }
     public func decode(_ data: Data) async throws -> JSON {
         try JSON.parse(data)
@@ -52,9 +50,9 @@ public protocol UploadRequest{
     /// url query parameters
     var query: URLQuery?{ get }
     /// upload content
-    var upload:Upload{ get }
+    var upload: Upload{ get }
     /// upload options
-    var options:Options{ get }
+    var options: Options{ get }
     /// model convert method
     func decode(_ data:Data)async throws ->Result
 }
@@ -65,9 +63,9 @@ public protocol DownloadRequest{
     /// url query parameters
     var query: URLQuery?{ get }
     /// download options
-    var options:Options{ get }
+    var options: Options{ get }
     /// resolve download file location
-    var transfer:FileTransfer?{ get }
+    var transfer: FileTransfer?{ get }
 
 }
 

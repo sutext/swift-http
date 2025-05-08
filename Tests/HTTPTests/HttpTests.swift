@@ -4,9 +4,9 @@ import XCTest
 class Client:HTTPClient,@unchecked Sendable{
     override init() {
         super.init()
-        self.debug = true
         self.delegate = self
     }
+    override var debug: Bool { true }
 }
 extension Client:HTTPDelegate{
     func client(_ client: HTTPClient, shouldUpdate config: URLSessionConfiguration) {
@@ -26,9 +26,7 @@ struct ModelRequest<M:Model>:Request,ExpressibleByStringLiteral{
     init(url: String) {
         self.url = url
     }
-    func encode() -> HTTPParams? {
-        params
-    }
+    var httpParams: (any HTTPParams)?{ params }
     func decode(_ data: Data) async throws -> M {
         try M(JSON.parse(data))
     }
@@ -91,7 +89,6 @@ final class HttpTests: XCTestCase {
 
     }
     func testGet() async throws {
-        
         var req:ModelRequest<GoogleOidcConfig> = "https://accounts.google.com/.well-known/openid-configuration"
         req.params.username = "hello"
         req.params.password = "xxxxx"

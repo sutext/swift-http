@@ -13,6 +13,7 @@ class Session:NSObject{
     lazy var session:URLSession = {
         let config = URLSessionConfiguration.default
         config.httpShouldUsePipelining = true
+        config.httpAdditionalHeaders = Headers.default.values
         let queue = OperationQueue()
         queue.maxConcurrentOperationCount = 6
         queue.underlyingQueue = rootQueue

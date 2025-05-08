@@ -52,7 +52,7 @@ extension HTTPParams{
 @dynamicMemberLookup
 @frozen public struct JSONParams:HTTPParams{
     /// internal json conten
-    public var json:JSON
+    public private(set) var json:JSON
     /// query params encoding. Only effect in object
     public var query: URLQuery? {
         guard let object = json.object else{
@@ -110,10 +110,11 @@ extension HTTPParams{
     /// subscript geter seter. Convenient for setting attributes
     ///
     ///     var params:JSONParams = [:]
-    ///     params.["username"] = "jack"
-    ///     params.["password"] = "123456"
-    ///     params.["age"] = 20
-    ///     //When Getter ,this way of writing is recommended
+    ///     //Setter
+    ///     params["username"] = "jack"
+    ///     params["password"] = "123456"
+    ///     params["age"] = 20
+    ///     //Getter ,this way of writing is recommended
     ///     params.json.username.string // jack
     ///
     public subscript(key:any JSONKey)->Any?{
@@ -123,10 +124,11 @@ extension HTTPParams{
     /// dynamicMember geter seter. Convenient for setting attributes
     ///
     ///     var params:JSONParams = [:]
+    ///     //Setter
     ///     params.username = "jack"
     ///     params.password = "123456"
     ///     params.age = 20
-    ///     //When Getter ,this way of writing is recommended.
+    ///     //Getter ,this way of writing is recommended.
     ///     params.json.username.string // jack
     ///
     public subscript(dynamicMember key:String)->Any?{
@@ -181,11 +183,9 @@ extension URLRequest{
             self.url = url
         }
     }
-    static func create(_ url:URL,method:Method,params:HTTPParams?,headers:Headers?,timeout:TimeInterval?)->URLRequest{
+    static func create(_ url:URL,method:Method,params:HTTPParams?,headers:Headers,timeout:TimeInterval?)->URLRequest{
         var req = URLRequest(url:url , cachePolicy: .useProtocolCachePolicy, timeoutInterval: timeout ?? 0)
-        if let headers{
-            req.allHTTPHeaderFields = headers.values
-        }
+        req.allHTTPHeaderFields = headers.values
         req.httpMethod = method.rawValue
         guard let params else{ return req  }
         switch method {
@@ -204,11 +204,9 @@ extension URLRequest{
         }
         return req
     }
-    static func query(_ url:URL,method:Method,query:URLQuery?,headers:Headers?,timeout:TimeInterval?)->URLRequest{
+    static func query(_ url:URL,method:Method,query:URLQuery?,headers:Headers,timeout:TimeInterval?)->URLRequest{
         var req = URLRequest(url:url , cachePolicy: .useProtocolCachePolicy, timeoutInterval: timeout ?? 0)
-        if let headers{
-            req.allHTTPHeaderFields = headers.values
-        }
+        req.allHTTPHeaderFields = headers.values
         req.httpMethod = method.rawValue
         if let query {
             req.addQuery(query)

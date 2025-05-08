@@ -48,7 +48,7 @@ public class HTTPTask:@unchecked Sendable{
     /// the current task state
     public var state:URLSessionTask.State{ task.state }
     /// the current url request
-    public var request:URLRequest? { task.originalRequest }
+    public var request:URLRequest? { task.currentRequest }
     /// the total request duration in metrics
     public var duration:TimeInterval? { metrics?.taskInterval.duration }
     /// the curren task progress

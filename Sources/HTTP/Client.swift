@@ -1,5 +1,5 @@
 //
-//  Network.swift
+//  Client.swift
 //
 //
 //  Created by supertext on 2023/4/28.
@@ -97,13 +97,13 @@ open class HTTPClient:@unchecked Sendable{
     /// the http hocks and settings delegate
     public weak var delegate:HTTPDelegate?
     /// print debug log or not. override for custom
-    public var debug:Bool = false
-    /// global retryer  `nil` . Override it in  options
-    public var retrier:Retrier? = nil
+    open var debug:Bool { false }
     /// global http headers `[:]`. Override it in  options
-    public var headers:Headers = .default
+    open var headers:Headers { [:] }
     /// global timeout in secends `60`. Override it in  options
     public var timeout:TimeInterval = 60
+    /// global retryer  `nil` . Override it in  options
+    public var retrier:Retrier? = nil
     /// global fileManager. override for custom
     public var fileManager:FileManager = .default
     /// Cancel all the pening tasks except the download task
@@ -122,7 +122,7 @@ extension HTTPClient{
     ///
     @discardableResult
     public func request<R:Request>(_ req:R)->Response<R.Result>{
-        let resp = _request(req.url,params: req.encode(),options: req.options).then { data in
+        let resp = _request(req.url,params: req.httpParams,options: req.options).then { data in
             try await req.decode(data)
         }
         if debug{
@@ -264,9 +264,7 @@ extension HTTPClient{
         }
         let timeout = options.timeout ?? self.timeout
         var headers = self.headers
-        if let h = options.headers {
-            headers.merge(h)
-        }
+        headers.append(options.headers)
         let urlreq = URLRequest.query(url,method: options.method,query: query, headers: headers, timeout: timeout)
         let resp = self.session.download(
             request: urlreq,
@@ -305,9 +303,7 @@ extension HTTPClient{
         }
         let timeout = options.timeout ?? self.timeout
         var headers = self.headers
-        if let h = options.headers {
-            headers.merge(h)
-        }
+        headers.append(options.headers)
         let req = URLRequest.create(url, method: options.method,params: params, headers: headers, timeout: timeout)
         return self.session.request(req,retrier: options.retrier ?? self.retrier).map{
             guard let delegate = self.delegate else { return $0 }
@@ -325,9 +321,7 @@ extension HTTPClient{
         }
         let timeout = options.timeout ?? self.timeout
         var headers = self.headers
-        if let h = options.headers {
-            headers.merge(h)
-        }
+        headers.append(options.headers)
         if headers[.contentType] == nil{
             headers[.contentType] = "application/octet-stream"
         }
@@ -353,9 +347,7 @@ extension HTTPClient{
         }
         let timeout = options.timeout ?? self.timeout
         var headers = self.headers
-        if let h = options.headers {
-            headers.merge(h)
-        }
+        headers.append(options.headers)
         headers[.contentType] = data.contentType
         let urlreq = URLRequest.query(url,method: options.method,query: query, headers: headers, timeout: timeout)
         return self.session.upload(
