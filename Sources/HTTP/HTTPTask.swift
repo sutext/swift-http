@@ -14,7 +14,7 @@ extension URLRequest{
         }
         return .init(rawValue: httpMethod)
     }
-    public mutating func setHeader(_ value:String,for field:Headers.Field){
+    public mutating func setHeader(_ value:String?,for field:Headers.Field){
         setValue(value, forHTTPHeaderField: field.rawValue)
     }
     public func header(for field:Headers.Field)->String?{
