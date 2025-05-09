@@ -31,6 +31,23 @@ extension HTTPURLResponse{
         value(forHTTPHeaderField: field)
     }
 }
+extension URLRequest{
+    public var method:Method?{
+        guard let httpMethod else {
+            return nil
+        }
+        return .init(rawValue: httpMethod)
+    }
+    public mutating func setHeader(_ value:String?,for field:Headers.Field){
+        setValue(value, forHTTPHeaderField: field.rawValue)
+    }
+    public func header(for field:Headers.Field)->String?{
+        value(forHTTPHeaderField: field.rawValue)
+    }
+    public func header(for field:String)->String?{
+        value(forHTTPHeaderField: field)
+    }
+}
 @frozen public struct Response<Value:Sendable>:Sendable{
     /// The http task
     /// It will be nil when the request never been sent. At this case some error or some cached respone occurred
@@ -85,48 +102,6 @@ extension HTTPURLResponse{
     /// - SeeAlso `Promise.finally()`
     public func finally(_ handler:@escaping @Sendable (Result<Value,Error>)async->Void ){
         promise.finally(handler)
-    }
-    public func debugPrint(){
-        promise.finally{
-            guard let task = self.task else{
-                Swift.print("""
-                -----------------------SwiftHTTP DEUBG-----------------------
-                [Request] The HTTPTask has never been created
-                [Response]: \($0)
-                -------------------------------------------------------------
-                """)
-                return
-            }
-            Swift.print("""
-            -----------------------SwiftHTTP DEUBG------------------------
-            [\(task.method?.rawValue ?? "")]:  \(task.url ?? "null")
-            [Request Body]: \(task.bodyDesc)
-            [Request Headers]: \(JSON(task.request?.allHTTPHeaderFields))
-            [Request Duration]: \(task.duration ?? 0)s
-            [Response Result]: \($0)
-            [Response Status]: \(task.statusCode ?? 0)
-            [Response Headers]: \(JSON(task.response?.allHeaderFields))
-            --------------------------------------------------------------
-            """)
-        }
-    }
-}
-
-extension HTTPTask{
-    var bodyDesc:String{
-        guard let data = request?.httpBody else{
-            return "null"
-        }
-        guard let contentType = request?.header(for: .contentType) else{
-            return "\(data)"
-        }
-        if contentType.contains("application/json") {
-            return JSON(parse: data).description
-        }else if contentType.contains("application/x-www-form-urlencoded"){
-            return String(data:data,encoding: .utf8) ?? "null"
-        }else{
-            return "\(data)"
-        }
     }
 }
 extension Response where Value == Data{

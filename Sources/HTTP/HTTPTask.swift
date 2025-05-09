@@ -7,23 +7,6 @@
 
 import Foundation
 
-extension URLRequest{
-    public var method:Method?{
-        guard let httpMethod else {
-            return nil
-        }
-        return .init(rawValue: httpMethod)
-    }
-    public mutating func setHeader(_ value:String?,for field:Headers.Field){
-        setValue(value, forHTTPHeaderField: field.rawValue)
-    }
-    public func header(for field:Headers.Field)->String?{
-        value(forHTTPHeaderField: field.rawValue)
-    }
-    public func header(for field:String)->String?{
-        value(forHTTPHeaderField: field)
-    }
-}
 public class HTTPTask:@unchecked Sendable{
     private let session:Session
     private(set) var task:URLSessionTask
@@ -47,8 +30,8 @@ public class HTTPTask:@unchecked Sendable{
     public var url:String? { request?.url?.absoluteString }
     /// the current task state
     public var state:URLSessionTask.State{ task.state }
-    /// the current url request
-    public var request:URLRequest? { task.currentRequest }
+    /// the original url request
+    public var request:URLRequest? { task.originalRequest }
     /// the total request duration in metrics
     public var duration:TimeInterval? { metrics?.taskInterval.duration }
     /// the curren task progress
@@ -57,6 +40,11 @@ public class HTTPTask:@unchecked Sendable{
     public var response:HTTPURLResponse?{ task.response as? HTTPURLResponse }
     /// the current http status code
     public var statusCode:Int?{  response?.statusCode  }
+    /// The task is completed or not
+    /// Once the task is completed, it will no longer be restarted or retried
+    public var completed:Bool{
+        promise.isDone
+    }
     /// the current http method
     public var method:Method? {
         request?.method
@@ -70,6 +58,7 @@ public class HTTPTask:@unchecked Sendable{
     public func suspend()  {
         task.suspend()
     }
+    
     ///cancel the task with data resumer block
     ///Only effect in `DownloadTask` and `UploadTask iOS17.0 or latter`
     ///Use `client.download(resume:) `or `client.upload(resume:)` for continue
@@ -161,9 +150,54 @@ public class HTTPTask:@unchecked Sendable{
         }else{
             self.promise.done(data)
         }
+        if session.client.debug{
+            debugPrint(self)
+        }
     }
     func cleanup(){
         
+    }
+}
+extension HTTPTask:CustomDebugStringConvertible{
+    public var debugDescription: String{
+        """
+        -----------------------SwiftHTTP DEUBG------------------------
+        [\(method?.rawValue ?? "")]:  \(url ?? "null")
+        [Request Body]: \(requestBody)
+        [Request Headers]: \(JSON(task.currentRequest?.allHTTPHeaderFields))
+        [Request Duration]: \(duration ?? 0)s
+        [Response Body]: \(responseBody)
+        [Response Status]: \(statusCode ?? 0)
+        [Response Headers]: \(JSON(response?.allHeaderFields))
+        --------------------------------------------------------------
+        """
+    }
+    private var requestBody:String{
+        guard let data = task.originalRequest?.httpBody else{
+            return "null"
+        }
+        if let json = try? JSON.parse(data){ //try json decoding; application/json
+            return json.description
+        }
+        if let str = String(data:data,encoding: .utf8){ //try string decoding; text/html; text/xml... any text
+            return str
+        }
+        return "Binary \(data)"
+    }
+    private var responseBody:String{
+        guard completed else{
+            return "Pending"
+        }
+        if let error{
+            return "\(error)"
+        }
+        if let json = try? JSON.parse(data){ //try json decoding; application/json
+            return json.description
+        }
+        if let str = String(data:data,encoding: .utf8){ //try string decoding; text/html; text/xml... any text
+            return str
+        }
+        return "Binary \(data)"
     }
 }
 public class UploadTask:HTTPTask,@unchecked Sendable{

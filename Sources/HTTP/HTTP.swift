@@ -121,7 +121,7 @@ import Foundation
     }()
     /// See the [User-Agent header documentation](https://tools.ietf.org/html/rfc7231#section-5.5.3).
     ///
-    /// Example: `iOS Example/1.0 (com.example.app; build:1; iOS 13.0.0) SwiftHTTP/5.0.0`
+    /// Example: `Example/1.0 (com.example.app; build:1; iOS 13.0.0) SwiftHTTP/1.0.0`
     public static let defaultUserAgent: String = {
         let info = Bundle.main.infoDictionary
         let executable = (info?[kCFBundleExecutableKey as String] as? String) ??
@@ -130,14 +130,29 @@ import Foundation
         let bundle = info?[kCFBundleIdentifierKey as String] as? String ?? "Unknown"
         let appVersion = info?["CFBundleShortVersionString"] as? String ?? "Unknown"
         let appBuild = info?[kCFBundleVersionKey as String] as? String ?? "Unknown"
+        let osName = getOsName()
         let osNameVersion: String = {
             let version = ProcessInfo.processInfo.operatingSystemVersion
             let versionString = "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)"
-            return "iOS \(versionString)"
+            return "\(osName) \(versionString)"
         }()
-        let fmmkName = "SwiftHTTP/\(osNameVersion)"
-        return  "\(executable)/\(appVersion) (\(bundle); build:\(appBuild); \(osNameVersion)) \(fmmkName)"
+        return  "\(executable)/\(appVersion) (\(bundle); build:\(appBuild); \(osNameVersion)) SwiftHTTP/1.5.2"
     }()
+    private static func getOsName()->String {
+        #if os(iOS)
+        return "iOS"
+        #elseif os(macOS)
+        return "macOS"
+        #elseif os(tvOS)
+        return "tvOS"
+        #elseif os(watchOS)
+        return "watchOS"
+        #elseif os(visionOS)
+        return "visionOS"
+        #else
+        return "Darwin"
+        #endif
+    }
 }
 extension Headers:ExpressibleByDictionaryLiteral{
     public init(dictionaryLiteral elements: (String, String)...) {

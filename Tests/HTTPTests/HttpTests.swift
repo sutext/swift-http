@@ -77,14 +77,14 @@ final class HttpTests: XCTestCase {
         let full = "https://www.example.com/a/b/c/d"
         let relatives = ["/c/d","c/d"]
         let bases = ["https://www.example.com/a/b","https://www.example.com/a/b/"]
-        for r in relatives{
+        for url in relatives{
             for base in bases {
-                XCTAssertEqual(URL(r,baseURL: base)?.absoluteString, full)
+                XCTAssertEqual(client.join(url, base: base), full)
             }
         }
         let base = "https://www.example.com/a/b"
-        XCTAssertEqual(URL(full,baseURL: base)?.absoluteString, full)
-        XCTAssertEqual(URL(full,baseURL: nil)?.absoluteString, full)
+        XCTAssertEqual(client.join(full,base: base), full)
+        XCTAssertEqual(client.join(full,base: nil), full)
         XCTAssertEqual(URL(string: full)?.absoluteString, full)
 
     }
@@ -110,10 +110,6 @@ final class HttpTests: XCTestCase {
         XCTAssertNotNil(config.issuer)
     }
     func testGet3() async throws {
-        var req:JSONRequest = "https://accounts.google.com/.well-known/openid-configuration"
-        req.options = .get()
-        let json = try await client.request(req).wait()
-        let config = try GoogleOidcConfig(json)
-        XCTAssertNotNil(config.issuer)
+        try await client.request(url: "https://www.baidu.com",params: JSONParams(["key":"value"])).wait()
     }
 }

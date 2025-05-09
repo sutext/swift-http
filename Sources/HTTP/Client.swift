@@ -122,13 +122,9 @@ extension HTTPClient{
     ///
     @discardableResult
     public func request<R:Request>(_ req:R)->Response<R.Result>{
-        let resp = _request(req.url,params: req.httpParams,options: req.options).then { data in
+        request(url:req.url,params: req.httpParams,options: req.options).then { data in
             try await req.decode(data)
         }
-        if debug{
-            resp.debugPrint()
-        }
-        return resp
     }
     ///
     /// Send a simple data request directly
@@ -141,11 +137,18 @@ extension HTTPClient{
     ///
     @discardableResult
     public func request(url:String,params:HTTPParams?=nil,options:Options = .get())->Response<Data>{
-        let resp = _request(url,params: params,options: options)
-        if debug{
-            resp.debugPrint()
+        let url = join(url, base: options.baseURL ?? baseURL)
+        guard url.hasPrefix("http"),let url = URL(string: url)else{
+            return .init(HTTPError.invalidURL(url))
         }
-        return resp
+        let timeout = options.timeout ?? self.timeout
+        var headers = self.headers
+        headers.append(options.headers)
+        let req = URLRequest.create(url, method: options.method,params: params, headers: headers, timeout: timeout)
+        return session.request(req,retrier: options.retrier ?? self.retrier).map{
+            guard let delegate = self.delegate else { return $0 }
+            return try await delegate.client(self, modifyResult: $0, request: $1, response: $2)
+        }
     }
    
     /// Send an file upload  request
@@ -157,21 +160,16 @@ extension HTTPClient{
     ///
     @discardableResult
     public func upload<R:UploadRequest>(_ req:R)->Response<R.Result>{
-        let resp:Response<R.Result>
         switch req.upload{
         case .file(let fileURL):
-            resp = _upload(fileURL, to: req.url,query: req.query,options: req.options).then {data in
+            return upload(fileURL, to: req.url,query: req.query,options: req.options).then {data in
                 try await req.decode(data)
             }
         case .form(let data):
-            resp = _upload(data, to: req.url,query: req.query,options: req.options).then {data in
+            return upload(data, to: req.url,query: req.query,options: req.options).then {data in
                 try await req.decode(data)
             }
         }
-        if debug{
-            resp.debugPrint()
-        }
-        return resp
     }
     /// Upload an local file  or form data to server.
     ///
@@ -187,12 +185,27 @@ extension HTTPClient{
         _ file:URL,
         to url:String,
         query:URLQuery? = nil,
-        options:Options = .post())->Response<Data>{
-        let resp = _upload(file, to: url,query: query,options: options)
-        if debug{
-            resp.debugPrint()
+        options:Options = .post()
+    )->Response<Data>{
+        let url = join(url, base: options.baseURL ?? baseURL)
+        guard url.hasPrefix("http"),let url = URL(string: url)else{
+            return .init(HTTPError.invalidURL(url))
         }
-        return resp
+        let timeout = options.timeout ?? self.timeout
+        var headers = self.headers
+        headers.append(options.headers)
+        if headers[.contentType] == nil{
+            headers[.contentType] = "application/octet-stream"
+        }
+        let urlreq = URLRequest.query(url,method: options.method,query: query, headers: headers, timeout: timeout)
+        return session.upload(
+            file: file,
+            request: urlreq,
+            retrier: options.retrier,
+            fileManager: fileManager).map{
+                guard let delegate = self.delegate else { return $0 }
+                return try await delegate.client(self, modifyResult: $0, request: $1, response: $2)
+            }
     }
    
     /// Upload an local file to server.
@@ -210,12 +223,25 @@ extension HTTPClient{
         _ data:FormData,
         to url:String,
         query:URLQuery? = nil,
-        options:Options = .post())->Response<Data>{
-        let resp = _upload(data, to: url,query: query,options: options)
-        if debug{
-            resp.debugPrint()
+        options:Options = .post()
+    )->Response<Data>{
+        let url = join(url, base: options.baseURL ?? baseURL)
+        guard url.hasPrefix("http"),let url = URL(string: url)else{
+            return .init(HTTPError.invalidURL(url))
         }
-        return resp
+        let timeout = options.timeout ?? self.timeout
+        var headers = self.headers
+        headers.append(options.headers)
+        headers[.contentType] = data.contentType
+        let urlreq = URLRequest.query(url,method: options.method,query: query, headers: headers, timeout: timeout)
+        return session.upload(
+            form: data,
+            request: urlreq,
+            retrier: options.retrier,
+            fileManager: fileManager).map{
+                guard let delegate = self.delegate else { return $0 }
+                return try await delegate.client(self, modifyResult: $0, request: $1, response: $2)
+            }
     }
     /// Creates an upload task from a resume data blob. Requires the server to support the latest resumable uploads
     /// Internet-Draft from the HTTP Working Group, found at
@@ -229,7 +255,7 @@ extension HTTPClient{
     @available(iOS 17.0,watchOS 10.0,macOS 14.0,tvOS 17.0, *)
     @discardableResult
     func upload(resume data:Data)->Response<Data>{
-        self.session.upload(resume: data, fileManager: fileManager)
+        session.upload(resume: data, fileManager: fileManager)
     }
     /// Send an file download  request
     ///
@@ -240,7 +266,7 @@ extension HTTPClient{
     ///
     @discardableResult
     public func download<R:DownloadRequest>(_ req:R)->Response<String>{
-        self.download(req.url,query: req.query,options: req.options, transfer: req.transfer)
+        download(req.url,query: req.query,options: req.options, transfer: req.transfer)
     }
     /// Send a simple download  request
     ///
@@ -258,23 +284,21 @@ extension HTTPClient{
         _ url:String,
         query:URLQuery?=nil,
         options:Options = .get(),
-        transfer:FileTransfer? = nil)->Response<String>{
-        guard let url = URL(url, baseURL: options.baseURL ?? self.baseURL) else{
+        transfer:FileTransfer? = nil
+    )->Response<String>{
+        let url = join(url, base: options.baseURL ?? baseURL)
+        guard url.hasPrefix("http"),let url = URL(string: url)else{
             return .init(HTTPError.invalidURL(url))
         }
         let timeout = options.timeout ?? self.timeout
         var headers = self.headers
         headers.append(options.headers)
         let urlreq = URLRequest.query(url,method: options.method,query: query, headers: headers, timeout: timeout)
-        let resp = self.session.download(
+        return session.download(
             request: urlreq,
             retrier: options.retrier,
             fileManager: fileManager,
             transfer: transfer)
-        if debug{
-            resp.debugPrint()
-        }
-        return resp
     }
     /// Send a resume download request
     /// - Note: If `transfer` is not specified, the download will be moved to a temporary location determined by SwiftHTTP. The file will not be deleted until the system purges the temporary files.
@@ -286,102 +310,22 @@ extension HTTPClient{
     ///
     @discardableResult
     public func download(resume data:Data,transfer:FileTransfer?=nil)->Response<String>{
-        let resp = self.session.download(
-            resume: data,
-            fileManager: fileManager,
-            transfer: transfer)
-        if debug{
-            resp.debugPrint()
-        }
-        return resp
+        session.download(resume: data,fileManager: fileManager,transfer: transfer)
     }
-}
-extension HTTPClient{
-    private func _request(_  url:String,params:HTTPParams?,options:Options)->Response<Data>{
-        guard let url = URL(url, baseURL: options.baseURL ?? self.baseURL) else{
-            return .init(HTTPError.invalidURL(url))
+    func join(_ url:String,base:String?)->String{
+        if url.hasPrefix("http"){
+            return url
         }
-        let timeout = options.timeout ?? self.timeout
-        var headers = self.headers
-        headers.append(options.headers)
-        let req = URLRequest.create(url, method: options.method,params: params, headers: headers, timeout: timeout)
-        return self.session.request(req,retrier: options.retrier ?? self.retrier).map{
-            guard let delegate = self.delegate else { return $0 }
-            return try await delegate.client(self, modifyResult: $0, request: $1, response: $2)
+        guard let base else{
+            return url
         }
-    }
-    private func _upload(
-        _ file:URL,
-        to url:String,
-        query:URLQuery?=nil,
-        options:Options = .post())->Response<Data>
-    {
-        guard let url = URL(url, baseURL: options.baseURL ?? self.baseURL) else{
-            return .init(HTTPError.invalidURL(url))
-        }
-        let timeout = options.timeout ?? self.timeout
-        var headers = self.headers
-        headers.append(options.headers)
-        if headers[.contentType] == nil{
-            headers[.contentType] = "application/octet-stream"
-        }
-        let urlreq = URLRequest.query(url,method: options.method,query: query, headers: headers, timeout: timeout)
-        return self.session.upload(
-            file: file,
-            request: urlreq,
-            retrier: options.retrier,
-            fileManager: fileManager).map{
-                guard let delegate = self.delegate else { return $0 }
-                return try await delegate.client(self, modifyResult: $0, request: $1, response: $2)
-            }
-            
-    }
-    private func _upload(
-        _ data:FormData,
-        to url:String,
-        query:URLQuery?=nil,
-        options:Options = .post())->Response<Data>
-    {
-        guard let url = URL(url, baseURL: options.baseURL ?? self.baseURL) else{
-            return .init(HTTPError.invalidURL(url))
-        }
-        let timeout = options.timeout ?? self.timeout
-        var headers = self.headers
-        headers.append(options.headers)
-        headers[.contentType] = data.contentType
-        let urlreq = URLRequest.query(url,method: options.method,query: query, headers: headers, timeout: timeout)
-        return self.session.upload(
-            form: data,
-            request: urlreq,
-            retrier: options.retrier,
-            fileManager: fileManager).map{
-                guard let delegate = self.delegate else { return $0 }
-                return try await delegate.client(self, modifyResult: $0, request: $1, response: $2)
-            }
-    }
-}
-extension URL{
-    /// build url safely
-    init?(_ url:String,baseURL:String?){
-        if url.hasPrefix("http"){ //Absolute URL
-            self.init(string: url)
-            return
-        }
-        guard let baseURL else{ //Relative URL must provide baseURL
-            return nil
-        }
-        if baseURL.hasSuffix("/"){
-            if url.hasPrefix("/"){
-                self.init(string: baseURL + url.dropFirst())
-            }else{
-                self.init(string: baseURL + url)
-            }
-        }else{
-            if url.hasPrefix("/"){
-                self.init(string: baseURL + url)
-            }else{
-                self.init(string: baseURL + "/" + url)
-            }
+        switch (base.hasSuffix("/"),url.hasPrefix("/")){
+        case (true,true):
+            return base + url.dropFirst()
+        case (false,false):
+            return base + "/" + url
+        default:
+            return base + url
         }
     }
 }
