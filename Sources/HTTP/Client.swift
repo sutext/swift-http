@@ -122,7 +122,7 @@ extension HTTPClient{
     ///
     @discardableResult
     public func request<R:Request>(_ req:R)->Response<R.Result>{
-        request(url:req.url,params: req.httpParams,options: req.options).then { data in
+        request(url:req.url,params: req.params,options: req.options).then { data in
             try await req.decode(data)
         }
     }
@@ -137,8 +137,7 @@ extension HTTPClient{
     ///
     @discardableResult
     public func request(url:String,params:HTTPParams?=nil,options:Options = .get())->Response<Data>{
-        let url = join(url, base: options.baseURL ?? baseURL)
-        guard url.hasPrefix("http"),let url = URL(string: url)else{
+        guard let url = URL(url, base: options.baseURL ?? self.baseURL) else{
             return .init(HTTPError.invalidURL(url))
         }
         let timeout = options.timeout ?? self.timeout
@@ -187,8 +186,7 @@ extension HTTPClient{
         query:URLQuery? = nil,
         options:Options = .post()
     )->Response<Data>{
-        let url = join(url, base: options.baseURL ?? baseURL)
-        guard url.hasPrefix("http"),let url = URL(string: url)else{
+        guard let url = URL(url, base: options.baseURL ?? self.baseURL) else{
             return .init(HTTPError.invalidURL(url))
         }
         let timeout = options.timeout ?? self.timeout
@@ -225,8 +223,7 @@ extension HTTPClient{
         query:URLQuery? = nil,
         options:Options = .post()
     )->Response<Data>{
-        let url = join(url, base: options.baseURL ?? baseURL)
-        guard url.hasPrefix("http"),let url = URL(string: url)else{
+        guard let url = URL(url, base: options.baseURL ?? self.baseURL) else{
             return .init(HTTPError.invalidURL(url))
         }
         let timeout = options.timeout ?? self.timeout
@@ -286,8 +283,7 @@ extension HTTPClient{
         options:Options = .get(),
         transfer:FileTransfer? = nil
     )->Response<String>{
-        let url = join(url, base: options.baseURL ?? baseURL)
-        guard url.hasPrefix("http"),let url = URL(string: url)else{
+        guard let url = URL(url, base: options.baseURL ?? self.baseURL) else{
             return .init(HTTPError.invalidURL(url))
         }
         let timeout = options.timeout ?? self.timeout
@@ -312,20 +308,23 @@ extension HTTPClient{
     public func download(resume data:Data,transfer:FileTransfer?=nil)->Response<String>{
         session.download(resume: data,fileManager: fileManager,transfer: transfer)
     }
-    func join(_ url:String,base:String?)->String{
+}
+extension URL{
+    init?(_ url:String,base:String?){
         if url.hasPrefix("http"){
-            return url
+            self.init(string: url)
+            return
         }
-        guard let base else{
-            return url
+        guard let base,base.hasPrefix("http") else{
+            return nil
         }
         switch (base.hasSuffix("/"),url.hasPrefix("/")){
         case (true,true):
-            return base + url.dropFirst()
+            self.init(string: base + url.dropFirst())
         case (false,false):
-            return base + "/" + url
+            self.init(string: base + "/" + url)
         default:
-            return base + url
+            self.init(string: base + url)
         }
     }
 }

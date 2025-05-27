@@ -26,7 +26,6 @@ struct ModelRequest<M:Model>:Request,ExpressibleByStringLiteral{
     init(url: String) {
         self.url = url
     }
-    var httpParams: (any HTTPParams)?{ params }
     func decode(_ data: Data) async throws -> M {
         try M(JSON.parse(data))
     }
@@ -79,14 +78,12 @@ final class HttpTests: XCTestCase {
         let bases = ["https://www.example.com/a/b","https://www.example.com/a/b/"]
         for url in relatives{
             for base in bases {
-                XCTAssertEqual(client.join(url, base: base), full)
+                XCTAssertEqual(URL(url, base: base)?.absoluteString, full)
             }
         }
         let base = "https://www.example.com/a/b"
-        XCTAssertEqual(client.join(full,base: base), full)
-        XCTAssertEqual(client.join(full,base: nil), full)
-        XCTAssertEqual(URL(string: full)?.absoluteString, full)
-
+        XCTAssertEqual(URL(full,base: base)?.absoluteString, full)
+        XCTAssertEqual(URL(full,base: nil)?.absoluteString, full)
     }
     func testGet() async throws {
         var req:ModelRequest<GoogleOidcConfig> = "https://accounts.google.com/.well-known/openid-configuration"

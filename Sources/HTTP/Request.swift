@@ -9,12 +9,13 @@ import Foundation
 
 public protocol Request{
     associatedtype Result:Sendable
+    associatedtype Params:HTTPParams
     /// It can be a full URL or a relative URL
     var url:String{ get }
-    /// request options
-    var options:Options { get }
     /// get the http params
-    var httpParams:HTTPParams?{ get }
+    var params:Params{ get }
+    /// request options
+    var options:Options{ get }
     /// decode response data to Result modle
     func decode(_ data:Data)async throws ->Result
 }
@@ -23,7 +24,6 @@ public protocol Request{
     public var url: String
     public var params: JSONParams
     public var options: Options
-    public var httpParams: HTTPParams?{ params }
     public init(_ url: String, params: JSONParams = [:], options: Options = .get()) {
         self.url = url
         self.params = params
@@ -66,6 +66,5 @@ public protocol DownloadRequest{
     var options: Options{ get }
     /// resolve download file location
     var transfer: FileTransfer?{ get }
-
 }
 
