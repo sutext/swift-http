@@ -22,11 +22,17 @@ import PackageDescription
 let package = Package(
     name: "YOUR_PROJECT_NAME",
     dependencies: [
-        .package(url: "https://github.com/sutext/swift-http.git", from: "1.1.1"),
+        .package(url: "https://github.com/sutext/swift-http.git", from: "1.6.0"),
     ]
 )
 ```
+## Contribution
+- We welcome any contribution to `swift-http`.
+- See [Contributing](CONTRIBUTING.md) for more information on how to contribute.
+- If you find a bug, please create an issue.
 
+## License
+- `swift-http` is available under the Apache 2.0 license. See the [LICENSE](LICENSE.md) file for more info.
 ### Usage
 
 ```swift
