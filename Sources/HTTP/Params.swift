@@ -10,6 +10,10 @@ import Foundation
 @frozen public struct HTTPBody:Sendable{
     public let data:Data
     public let mimeType:MimeType
+    public init(data: Data, mimeType: MimeType) {
+        self.data = data
+        self.mimeType = mimeType
+    }
     public static func xml(_ data:Data)->HTTPBody{
         .init(data: data, mimeType: "application/xml")
     }
@@ -24,10 +28,6 @@ import Foundation
     }
     public static func urlencoded(_ data:Data)->HTTPBody{
         .init(data: data, mimeType: "application/x-www-form-urlencoded; charset=utf-8")
-    }
-    public static func formData(_ form:FormData)->HTTPBody?{
-        guard let data = try? form.encode() else { return nil }
-        return .init(data: data, mimeType: form.contentType)
     }
 }
 
@@ -49,6 +49,7 @@ extension HTTPParams{
     public var bodyQuery:URLQuery? { nil }
 }
 ///Standardized JSON Params params encoding
+///`JSONParams` is applicable to both `get` and `post` requests. The parameters will be encoded into the `body` or `query` according to the request method
 @dynamicMemberLookup
 @frozen public struct JSONParams:HTTPParams{
     /// internal json conten
@@ -147,6 +148,7 @@ extension JSONParams:ExpressibleByArrayLiteral,ExpressibleByDictionaryLiteral{
     }
 }
 ///`URLQuery` is also an `HTTPParams`. Use application/x-www-form-urlencoded body
+///`URLParams` is applicable to both `get` and `post` requests. The parameters will be encoded into the `body` or `query` according to the request method
 public typealias URLParams = URLQuery
 extension URLParams:HTTPParams{
     public var body: HTTPBody? {
@@ -156,15 +158,6 @@ extension URLParams:HTTPParams{
         return .urlencoded(data)
     }
     public var query: URLQuery?{ self }
-}
-
-///Standardized Form Params params encoding
-@frozen public struct FormParams:HTTPParams{
-    public let form: FormData = .init()
-    public var query: URLQuery?
-    public var body: HTTPBody?{
-        .formData(form)
-    }
 }
 
 extension URLRequest{

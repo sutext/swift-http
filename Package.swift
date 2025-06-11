@@ -13,7 +13,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/sutext/swift-json", from: "2.4.2"),
-        .package(url: "https://github.com/sutext/swift-promise", from: "2.1.0")
+        .package(url: "https://github.com/sutext/swift-promise", from: "2.2.0")
     ],
     targets: [
         .target(
