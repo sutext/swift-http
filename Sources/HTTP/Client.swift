@@ -112,6 +112,44 @@ open class HTTPClient:@unchecked Sendable{
     }
 }
 extension HTTPClient{
+    /// Send an tuple of data request, which will wait until all the request are complete
+    /// All children request are executed concurrently
+    ///
+    ///     var r1 = ModelRequest<User>("/user/info")
+    ///     r1.params.userId = 1
+    ///     var r2 = ModelRequest<Order>("/order/info")
+    ///     r2.params.orderId = 2
+    ///     var r3 = ModelRequest<Student>("/student/info")
+    ///     r3.params.studentId = 3
+    ///     let values = try await client.request([r1,r2,r3]).wait() // tuple value of (User,Order,Student)
+    ///
+    ///- Parameters:
+    ///   - reqs:The request tuple
+    /// - Returns: Promise of result tuple
+    /// - Note: Only when all the requests are successful can the final result be considered successful; otherwise, the first request error will be obtained
+    @discardableResult
+    public func request<each R:Request>(_ reqs:repeat each R)->Promise<(repeat (each R).Result)>{
+        Promises(repeat request(each reqs).promise)
+    }
+    /// Send an arrary of data request, which will wait until all the request are complete
+    /// All children request are executed concurrently
+    ///
+    ///     var r1 = ModelRequest<User>(("/user/info")
+    ///     r1.params.userId = 1
+    ///     var r2 = ModelRequest<User>(("/user/info")
+    ///     r2.params.userId = 2
+    ///     var r3 = ModelRequest<User>(("/user/info")
+    ///     r3.params.userId = 3
+    ///     let values = try await client.request([r1,r2,r3]).wait() // array value [user1,user2,user3]
+    ///
+    ///- Parameters:
+    ///   - reqs:The request array
+    /// - Returns: Promise of result array
+    /// - Note: Only when all the requests are successful can the final result be considered successful; otherwise, the first request error will be obtained
+    @discardableResult
+    public func request<R:Request>(_ reqs:[R])->Promise<[R.Result]>{
+        Promises(reqs.map{ request($0).promise })
+    }
     ///
     /// Send an common data request
     ///

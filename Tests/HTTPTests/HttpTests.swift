@@ -86,10 +86,7 @@ final class HttpTests: XCTestCase {
         XCTAssertEqual(URL(full,base: nil)?.absoluteString, full)
     }
     func testGet() async throws {
-        var req:ModelRequest<GoogleOidcConfig> = "https://accounts.google.com/.well-known/openid-configuration"
-        req.params.username = "hello"
-        req.params.password = "xxxxx"
-        let config = try await client.request(req).wait()
+        let config = try await client.request(modelRequest()).wait()
         XCTAssertNotNil(config.issuer)
     }
     func testGet1() async throws {
@@ -108,5 +105,19 @@ final class HttpTests: XCTestCase {
     }
     func testGet3() async throws {
         try await client.request(url: "https://www.baidu.com",params: JSONParams(["key":"value"])).wait()
+    }
+    func modelRequest()->ModelRequest<GoogleOidcConfig>{
+        var req:ModelRequest<GoogleOidcConfig> = "https://accounts.google.com/.well-known/openid-configuration"
+        req.params.username = "hello"
+        req.params.password = "xxxxx"
+        return req
+    }
+    func testTupleRequest() async throws{
+        let configs = try await client.request(modelRequest(),modelRequest(),modelRequest()).wait()
+        XCTAssertNotNil(configs.2.issuer)
+    }
+    func testArrayRequest() async throws{
+        let configs = try await client.request([modelRequest(),modelRequest(),modelRequest()]).wait()
+        XCTAssertNotNil(configs[2].issuer)
     }
 }
