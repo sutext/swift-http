@@ -32,7 +32,7 @@ public protocol HTTPDelegate:AnyObject{
     ///
     /// - Note: All download tasks do not require filter
     ///
-    func client(_ client:HTTPClient,modifyResult result:Result<Data,Error>,request:URLRequest,response:HTTPURLResponse)async throws->Result<Data,Error>
+    func client(_ client:HTTPClient,filterRequest request:URLRequest)throws->FilterResult
     /// A responsse hook function
     ///
     /// - Change the response by return new resultt
@@ -46,7 +46,7 @@ public protocol HTTPDelegate:AnyObject{
     /// - Returns: A new result
     /// - Note: All download tasks do not require verification
     ///
-    func client(_ client:HTTPClient,filterRequest request:URLRequest)throws->FilterResult
+    func client(_ client:HTTPClient,modifyResult result:Result<Data,Error>,request:URLRequest,response:HTTPURLResponse)async throws->Result<Data,Error>
     /// A responsse hook function
     ///
     /// - Return a new request for restart
@@ -71,11 +71,11 @@ public extension HTTPDelegate{
     func client(_ client: HTTPClient, shouldUpdate config: URLSessionConfiguration) {
         
     }
-    func client(_ client: HTTPClient, modifyResult result: Result<Data, any Error>, request: URLRequest, response: HTTPURLResponse) async throws -> Result<Data, any Error> {
-        result
-    }
     func client(_ client: HTTPClient, filterRequest request: URLRequest) throws -> FilterResult {
         .none
+    }
+    func client(_ client: HTTPClient, modifyResult result: Result<Data, any Error>, request: URLRequest, response: HTTPURLResponse) async throws -> Result<Data, any Error> {
+        result
     }
     func client(_ client: HTTPClient, restartRequest request: URLRequest, error: any Error) async -> URLRequest? {
         nil
