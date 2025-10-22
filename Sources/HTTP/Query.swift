@@ -33,12 +33,12 @@ import Foundation
     ///   - values: key-vallue dictionary
     ///   - arrayBrackets: if `true` an empty set of square brackets is appended to the key for every value
     ///   - boolNumeric:  if `true` encode `true` as `1` and `false` as `0` otherwise encode `true` and `false` as string literals.
-    public init(_ values:[String:AnyValue] = [:],arrayBrackets: Bool = true, boolNumeric: Bool = true) {
+    public init(_ values:[String:AnyValue] = [:],arrayBrackets: Bool = false, boolNumeric: Bool = true) {
         self.values = values
         self.arrayBrackets = arrayBrackets
         self.boolNumeric = boolNumeric
     }
-    public init(_ values:[String:Any?],arrayBrackets: Bool = true, boolNumeric: Bool = true) {
+    public init(_ values:[String:Any?],arrayBrackets: Bool = false, boolNumeric: Bool = true) {
         let values = AnyValue(values).objectValue
         self.init(values,arrayBrackets: arrayBrackets,boolNumeric: boolNumeric)
     }

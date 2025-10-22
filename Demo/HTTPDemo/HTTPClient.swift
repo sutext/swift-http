@@ -33,32 +33,29 @@ protocol Model{
     init(_ data:Data)throws
 }
 struct ModelRequest<M:Model>:Request,ExpressibleByStringLiteral{
-    var url: String{ path }
-    var options: Options = .get()
-    var httpParams: (any HTTPParams)?{ params }
-    let path: String
+    var url: String
     var params:JSONParams = [:]
-    init(path: String) {
-        self.path = path
+    var options: Options = .get()
+    init(_ url: String) {
+        self.url = url
     }
     func decode(_ data: Data) async throws -> M {
         try M(data)
     }
     init(stringLiteral value: StringLiteralType) {
-        self.init(path: value)
+        self.init(value)
     }
 }
 struct ConfigRequest:Request{
-    var options: Options = .get()
     var url: String{ "https://accounts.google.com/.well-known/openid-configuration" }
     var params:JSONParams = [:]
+    var options: Options = .get()
     init() {
         params.username = "username"
         params.classmates = ["aa","bn","cc",true]
         params.isok = false
         params.age = 10
     }
-    var httpParams: (any HTTPParams)?{ params }
     func decode(_ data: Data) async throws -> GoogleOidcConfig {
         try GoogleOidcConfig(data)
     }
