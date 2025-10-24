@@ -120,4 +120,8 @@ final class HttpTests: XCTestCase {
         let configs = try await client.request([modelRequest(),modelRequest(),modelRequest()]).wait()
         XCTAssertNotNil(configs[2].issuer)
     }
+    func testURLQuery(){
+        let query = URLQuery(["key":["key1":["v1","v2"],"key2":["key3":"v3","key4":"v4"]]])
+        XCTAssertEqual(query, URLQuery.decode(query.encode()!))
+    }
 }

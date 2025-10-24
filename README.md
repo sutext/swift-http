@@ -2,8 +2,7 @@
 ![Platform](https://img.shields.io/badge/platforms-iOS%2013.0%20%7C%20macOS%2010.15%20%7C%20tvOS%2013.0%20%7C%20watchOS%206.0-F28D00.svg)
 - A minimalist and highly scalable HTTP client in Swift.
 - An http client wrapper by URLSession. Just like [Alamofire](https://github.com/Alamofire/Alamofire) and [Moya](https://github.com/Moya/Moya)
-- Unlike them `swift-http` is designed to be simple and lightweight in an easily extensible style
-- Unlike them `swift-http` use a new pattern of asynchronous programming. Just look at `Javascript` `Promise` for design ideas
+- `swift-http` use a new pattern of asynchronous programming. Just look at `Javascript` `Promise` for design ideas
 
 ## Requirements
 

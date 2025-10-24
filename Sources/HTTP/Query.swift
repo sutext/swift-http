@@ -23,7 +23,7 @@ import Foundation
 /// `true` as 1 and `false` as 0.
 ///
 @dynamicMemberLookup
-@frozen public struct URLQuery:Sendable{
+@frozen public struct URLQuery:Sendable,Hashable{
     private var values:[String:AnyValue]
     private let boolNumeric:Bool
     private let arrayBrackets:Bool
@@ -85,18 +85,12 @@ import Foundation
         case .array(let array):
             for value in array {
                 if case .null = value{ continue }
-                components += encode(encode(array: key), value: value)
+                components += encode(arrayBrackets ? "\(key)[]" : key, value: value)
             }
         default:
             break
         }
         return components
-    }
-    private func encode(array key:String)->String{
-        if arrayBrackets{
-            return "\(key)[]"
-        }
-        return key
     }
     private func encode(bool value:Bool)->String{
         if boolNumeric{
@@ -116,13 +110,53 @@ import Foundation
         let set = CharacterSet.urlQueryAllowed.subtracting(encodableDelimiters)
         return string.addingPercentEncoding(withAllowedCharacters: set) ?? string
     }
+    ///Parse the percent encoded query sting to ``URLQuery``   instance
+    ///
+    /// - NOTE:If there are nested dictionaries within the array, the encode and decode processes will no longer be symmetrical. This is due to the limitations of the URL encoding rules for arrays and dictionaries, which cause ambiguity.
+    ///
+    /// - Parameters:
+    ///    - query: the percent encoded query string
+    public static func decode(_ query:String)->URLQuery?{
+        var components = URLComponents()
+        components.percentEncodedQuery = query
+        guard let items = components.queryItems else{
+            return nil
+        }
+        var json:JSON = [:]
+        items.forEach { item in
+            var value = JSON(item.value)
+            let keys = parseName(item.name)
+            keys.reversed().forEach { key in
+                value = [key:value]
+            }
+            json.urlMerge(from: value)
+        }
+        return URLQuery(json.objectValue)
+    }
+    private static func parseName(_ name:String)->[String]{
+        name.replacingOccurrences(of: "[]", with: "").replacingOccurrences(of: "]", with: "").split(separator: "[").map(String.init)
+    }
 }
-extension URLQuery:ExpressibleByDictionaryLiteral{
-    public init(dictionaryLiteral elements: (String, Any?)...) {
-        self.boolNumeric = true
-        self.arrayBrackets = true
-        self.values = elements.reduce(into: [:], {
-            $0[$1.0] = JSON($1.1)
-        })
+extension JSON{
+    fileprivate mutating func urlMerge(from other:JSON){
+        switch (self,other) {
+        case (.array(let thisary),.array(let otherary)):
+            self = .array(thisary + otherary)
+        case (.object(var thisdic),.object(let otherdic)):
+            for (key,value) in otherdic{
+                if var thisval = thisdic[key]{
+                    thisval.urlMerge(from:value)
+                    thisdic[key] = thisval
+                }else{
+                    thisdic[key] = value
+                }
+            }
+            self = .object(thisdic)
+        case (.array(var thisary),_):
+            thisary.append(other)
+            self = .array(thisary)
+        default:
+            self = .array([self,other])
+        }
     }
 }

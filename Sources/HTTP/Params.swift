@@ -7,7 +7,7 @@
 
 import Foundation
 
-@frozen public struct HTTPBody:Sendable{
+@frozen public struct HTTPBody:Sendable,Hashable{
     public let data:Data
     public let mimeType:MimeType
     public init(data: Data, mimeType: MimeType) {
